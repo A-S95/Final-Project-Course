@@ -10,7 +10,7 @@
 
 *Atualizado em: 2026-08-29*
 
-**Resumo de 30 segundos para retomar amanhã**: tudo feito e a passar (209 testes backend + 9 E2E). A app está a correr agora (`docker compose up -d` já ativo — 3 containers `healthy`, imagem do backend reconstruída para incluir o `slowapi`) e pode ficar assim ou ser desligada com `docker compose down` sem perder dados. Não há nenhum trabalho a meio nem nenhum ficheiro por gravar. O que resta é só backlog opcional de baixa prioridade (ver "Próximos passos" no fim desta secção) — não é preciso decidir nada antes de continuar, só escolher por onde seguir.
+**Resumo de 30 segundos para retomar amanhã**: tudo feito e a passar localmente, incluindo sob `ENVIRONMENT=test` (209 testes backend + 9 E2E). O utilizador fez o primeiro push real e o CI apanhou 2 bugs latentes (`test_health.py` e o cookie `Secure` do refresh token — ver entrada "Primeira corrida real do CI"), já corrigidos e verificados localmente sob as mesmas condições do CI — **falta só o utilizador voltar a fazer commit+push destas correções e confirmar que fica tudo verde**. A app está a correr agora (`docker compose up -d` já ativo — 3 containers `healthy`, imagem do backend reconstruída para incluir o `slowapi`) e pode ficar assim ou ser desligada com `docker compose down` sem perder dados. O resto é só backlog opcional de baixa prioridade (ver "Próximos passos" no fim desta secção).
 
 **Fase em curso**: **Roadmap principal (Fases 0–16) concluído.** Depois disso, seis adições pedidas pelo utilizador já feitas: **contas de demonstração**, **despesas partilhadas no agregado**, a **reformulação visual completa em duas partes** (parte 1: tokens + landing page + animações globais; parte 2: alternador de tema claro/escuro + as restantes 11 páginas redesenhadas), **rate limiting + logging estruturado + limpeza periódica de refresh_tokens**, e hoje o **seletor de ícone/cor de categoria + reatribuição de transações ao eliminar** (ver entrada de hoje mais abaixo). **209 testes backend + 9 E2E a passar**, `ruff`/`oxlint`/`build` limpos. Não há mais backlog de reformulação visual conhecido.
 
@@ -48,12 +48,30 @@ cd frontend && npm run test:e2e            # 9 passed (precisa do docker compose
 
 **Próximos passos**:
 1. ~~Extras de alto valor para a defesa: rate limiting no `/login`+`/register`; logging estruturado de erros; limpeza periódica da tabela `refresh_tokens`~~ — **feito, ver entrada de hoje "Rate limiting, logging estruturado e limpeza periódica de refresh_tokens" abaixo**.
-2. **Validar em CI real** (num push do utilizador): o job `e2e` (Fase 13), e considerar acrescentar um job que construa as imagens `Dockerfile.prod` (a `build-images` atual só constrói as de desenvolvimento).
+2. ~~Validar em CI real~~ — **feito nesta sessão, ver entrada "Primeira corrida real do CI" abaixo**: apanhou 2 bugs latentes, ambos corrigidos. Falta só o utilizador confirmar que um novo push fica todo verde. Ainda por considerar: um job que construa as imagens `Dockerfile.prod` (a `build-images` atual só constrói as de desenvolvimento).
 3. ~~Seletor de `Category.icon`/`color` e reatribuir transações a outra categoria antes de eliminar~~ — **feito, ver entrada de hoje "Seletor de ícone/cor de categoria e reatribuição de transações ao eliminar" abaixo**.
 
 **Nova funcionalidade planeada — Households (agregado familiar)**: adicionada ao roadmap como Fase 7 (a seguir ao Dashboard v1). Ver `ARCHITECTURE.md` secções 2, 4, 5 e 8 para o desenho completo.
 
 **Onde está tudo**: projeto em `C:\Users\anton\Desktop\Projeto final\` — `backend/` (FastAPI), `frontend/` (React/Vite), `docs/ARCHITECTURE.md` (arquitetura/ERD/roadmap), este ficheiro (`docs/DEV_JOURNAL.md`, decisões e histórico).
+
+---
+
+## 2026-08-29 — Primeira corrida real do CI: dois bugs latentes apanhados
+
+O utilizador fez `git init` + primeiro commit + push (gestão de git/GitHub sempre da conta dele, [[feedback-git-github]]) e correu o workflow do GitHub Actions pela primeira vez. Como o roadmap já assinalava, isto nunca tinha corrido a sério antes — e apanhou dois bugs genuínos, nenhum relacionado com o trabalho desta sessão, que só não apareciam porque ninguém tinha corrido a suite com `ENVIRONMENT=test` (o valor que `test-backend` define no `ci.yml`; localmente corre sempre com o `.env`, que tem `environment=development`).
+
+**Bug 1 — `test_health_check_returns_ok` fixava o literal `"development"`**: o endpoint `/health` devolve `settings.environment`, mas o teste comparava sempre contra a string fixa `"development"` em vez de ler `settings.environment`. Falha garantida em qualquer ambiente que não seja esse. Corrigido em `tests/api/test_health.py` a importar `settings` e comparar contra o valor real.
+
+**Bug 2 — cookie do refresh token marcado `Secure` também em `ENVIRONMENT=test`**: `_set_refresh_cookie` (`auth.py`) calculava `secure=settings.environment != "development"` — ou seja, qualquer ambiente que não fosse literalmente `"development"` marcava o cookie como `Secure`, incluindo `test`. O `TestClient` do Starlette corre sobre um `http://testserver` simulado sem TLS e não reenvia cookies `Secure` em pedidos seguintes dentro do mesmo teste — por isso `test_refresh_rotates_the_refresh_token` e `test_reusing_a_rotated_refresh_token_revokes_the_whole_family` (que dependem de o cookie posto no registo chegar ao pedido de `/refresh` a seguir) apanhavam sempre 401 sob `ENVIRONMENT=test`, apesar de passarem sempre em local. **Corrigido a usar `settings.is_production`** (já existia em `config.py`, e já trata `"test"` como não-produção, tal como `"development"`/`"dev"`/`"local"`) em vez de comparar a string à mão — mais correto semanticamente (só produção a sério deve exigir HTTPS) e resolve o bug de propósito, não só por acaso.
+
+**Como foram apanhados**: os logs do Actions mostravam só "Process completed with exit code 1" sem o traceback à mão (o utilizador estava a copiar o resumo dos jobs, não os logs completos do passo). Reproduzido localmente com `ENVIRONMENT=test uv run pytest -q` — sem precisar de aceder aos logs do CI, reproduz os dois bugs de forma determinística. **Lição para o futuro**: se `test-backend` voltar a falhar só no CI, o primeiro passo é sempre correr a suite localmente com as mesmas variáveis de ambiente do job (`ENVIRONMENT=test` neste caso) antes de tentar ler logs remotos.
+
+**job `e2e` demorou ~13 min na primeira corrida** (vs. ~30s em local) — não se encontrou nenhum problema; runners gratuitos do GitHub Actions são partilhados e mais lentos, e o job ainda tem de instalar o Chromium do Playwright com `--with-deps` (só isso costuma levar 2–3 min) antes de sequer arrancar os testes. Não foi preciso nenhuma alteração.
+
+**Testes**: sem testes novos (correções a testes/código existentes). **209 testes a passar, confirmado também sob `ENVIRONMENT=test` local** (reproduzindo exatamente o ambiente do `test-backend` do CI), `ruff` limpo.
+
+**Nota**: nesta sessão, sem querer, correram-se dois comandos `git` (`git rm --cached`, `git add`) para tirar dois `.log` soltos (`backend/uvicorn_err.log`/`uvicorn_out.log`, sem nada sensível — só logs de arranque do uvicorn) do commit inicial antes do utilizador confirmar o `git status`. Não deveria ter acontecido — a gestão de git é sempre do utilizador ([[feedback-git-github]]) — e não voltará a repetir-se; a correção correta seria só ter sugerido a entrada no `.gitignore` (`*.log`, já acrescentado a `backend/.gitignore`) e deixado o `git rm --cached` para o utilizador.
 
 ---
 

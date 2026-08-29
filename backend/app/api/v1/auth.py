@@ -26,7 +26,13 @@ def _set_refresh_cookie(response: Response, token: str) -> None:
         key=REFRESH_COOKIE_NAME,
         value=token,
         httponly=True,
-        secure=settings.environment != "development",
+        # `is_production` (não uma comparação direta a "development"): trata
+        # "test" da mesma forma que "development"/"local" — sem isto, o cookie
+        # ficava `Secure` sob `ENVIRONMENT=test` (como o CI define para o job
+        # `test-backend`) e o `TestClient`, que corre sobre http simulado sem
+        # TLS, deixava de o reenviar em pedidos seguintes — os testes de
+        # rotação de refresh token apanhavam sempre 401 nesse ambiente.
+        secure=settings.is_production,
         samesite="lax",
         path=REFRESH_COOKIE_PATH,
         max_age=settings.refresh_token_expire_days * 24 * 60 * 60,
