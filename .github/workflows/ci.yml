@@ -124,7 +124,11 @@ jobs:
         run: uv run alembic upgrade head
       - name: Start backend
         working-directory: backend
-        run: uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 &
+        # stdout/stderr para um ficheiro: sem isto, se o arranque nunca ficar
+        # pronto (ex: liga à base de dados mas fica preso algures), o único
+        # sintoma visível é o "Wait for backend and frontend" a ficar pendurado
+        # sem pista nenhuma de porquê.
+        run: nohup uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 > backend.log 2>&1 &
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -139,13 +143,20 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Start frontend
         working-directory: frontend
-        run: npm run dev -- --host &
+        run: nohup npm run dev -- --host > frontend.log 2>&1 &
       - name: Wait for backend and frontend
-        run: |
-          npx wait-on http://localhost:8000/health http://localhost:5173
+        # Timeout explícito (60s): sem isto, um `wait-on` que nunca é
+        # satisfeito fica pendurado até ao limite do job (6h por omissão) em
+        # vez de falhar depressa com um erro percetível.
+        run: npx wait-on --timeout 60000 http://localhost:8000/health http://localhost:5173
       - name: Run E2E tests (Playwright)
         working-directory: frontend
         run: npm run test:e2e
+      - name: Dump backend/frontend logs
+        if: failure()
+        run: |
+          echo "--- backend.log ---"; cat backend/backend.log || true
+          echo "--- frontend.log ---"; cat frontend/frontend.log || true
       - name: Upload Playwright report
         if: failure()
         uses: actions/upload-artifact@v4

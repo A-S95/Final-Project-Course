@@ -36,6 +36,22 @@ configure_logging()
 REFRESH_TOKEN_CLEANUP_INTERVAL_SECONDS = 24 * 60 * 60
 
 
+def _cleanup_refresh_tokens_once() -> None:
+    db = SessionLocal()
+    try:
+        deleted = refresh_token_repository.delete_expired(db)
+        db.commit()
+        if deleted:
+            error_logger.info(
+                "Limpeza de refresh_tokens: %d token(s) expirado(s) removido(s).", deleted
+            )
+    except Exception:
+        db.rollback()
+        error_logger.exception("Falha na limpeza periódica de refresh_tokens.")
+    finally:
+        db.close()
+
+
 async def _cleanup_refresh_tokens_periodically() -> None:
     """Tarefa de fundo: apaga refresh tokens expirados a cada 24h.
 
@@ -44,21 +60,16 @@ async def _cleanup_refresh_tokens_periodically() -> None:
     uma dependência nesta escala de projeto. Limpa uma vez logo no arranque
     (útil sobretudo em dev, onde o processo pode ficar dias sem reiniciar) e
     depois a cada intervalo.
+
+    O trabalho em si (`_cleanup_refresh_tokens_once`) é síncrono — a app usa
+    SQLAlchemy síncrono, não `asyncpg`/`AsyncSession` — por isso corre em
+    `asyncio.to_thread`. Chamá-lo diretamente aqui bloquearia a única thread
+    do event loop durante toda a operação de base de dados: não só esta
+    tarefa ficava presa, a app inteira deixava de responder a pedidos
+    (incluindo `/health`) até a query terminar.
     """
     while True:
-        db = SessionLocal()
-        try:
-            deleted = refresh_token_repository.delete_expired(db)
-            db.commit()
-            if deleted:
-                error_logger.info(
-                    "Limpeza de refresh_tokens: %d token(s) expirado(s) removido(s).", deleted
-                )
-        except Exception:
-            db.rollback()
-            error_logger.exception("Falha na limpeza periódica de refresh_tokens.")
-        finally:
-            db.close()
+        await asyncio.to_thread(_cleanup_refresh_tokens_once)
         await asyncio.sleep(REFRESH_TOKEN_CLEANUP_INTERVAL_SECONDS)
 
 
