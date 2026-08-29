@@ -1,0 +1,19 @@
+# Deixado fora do contexto de build: o `npm ci` dentro da imagem instala as
+# dependências para Linux — copiar o node_modules do host (Windows) por cima
+# partiria os binários nativos (esbuild/rollup) e inchava a imagem.
+node_modules
+dist
+dist-ssr
+
+# Segredos/config não entram na imagem (vêm por env_file no compose).
+.env
+.env.example
+
+# Ruído
+*.log
+.git
+.vscode
+.idea
+coverage
+e2e/playwright-report
+e2e/test-results

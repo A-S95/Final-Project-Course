@@ -1,0 +1,109 @@
+import uuid
+
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
+
+from app.core.exceptions import (
+    CategoryInUseError,
+    CategoryNameAlreadyExistsError,
+    CategoryNotFoundError,
+    InvalidCategoryReassignError,
+)
+from app.models.category import Category, CategoryType
+from app.repositories import category_repository, transaction_repository
+
+
+def list_categories(db: Session, *, user_id: uuid.UUID) -> list[Category]:
+    return category_repository.list_by_user(db, user_id)
+
+
+def get_category(db: Session, *, user_id: uuid.UUID, category_id: uuid.UUID) -> Category:
+    category = category_repository.get_by_id_for_user(db, category_id, user_id)
+    if category is None:
+        raise CategoryNotFoundError
+    return category
+
+
+def create_category(
+    db: Session,
+    *,
+    user_id: uuid.UUID,
+    name: str,
+    type: CategoryType,
+    icon: str | None,
+    color: str | None,
+) -> Category:
+    if category_repository.get_by_name_for_user(db, name, user_id) is not None:
+        raise CategoryNameAlreadyExistsError(name)
+    return category_repository.create(
+        db, user_id=user_id, name=name, type=type, icon=icon, color=color
+    )
+
+
+def update_category(
+    db: Session,
+    *,
+    user_id: uuid.UUID,
+    category_id: uuid.UUID,
+    name: str | None,
+    type: CategoryType | None,
+    icon: str | None,
+    color: str | None,
+) -> Category:
+    category = get_category(db, user_id=user_id, category_id=category_id)
+
+    if name is not None and name != category.name:
+        existing = category_repository.get_by_name_for_user(db, name, user_id)
+        if existing is not None and existing.id != category.id:
+            raise CategoryNameAlreadyExistsError(name)
+        category.name = name
+    if type is not None:
+        category.type = type
+    if icon is not None:
+        category.icon = icon
+    if color is not None:
+        category.color = color
+
+    db.flush()
+    return category
+
+
+def delete_category(
+    db: Session,
+    *,
+    user_id: uuid.UUID,
+    category_id: uuid.UUID,
+    reassign_to_category_id: uuid.UUID | None = None,
+) -> None:
+    category = get_category(db, user_id=user_id, category_id=category_id)
+
+    if reassign_to_category_id is not None:
+        if reassign_to_category_id == category_id:
+            raise InvalidCategoryReassignError(
+                "A categoria de destino tem de ser diferente da categoria a eliminar."
+            )
+        target = category_repository.get_by_id_for_user(db, reassign_to_category_id, user_id)
+        if target is None:
+            raise InvalidCategoryReassignError("Categoria de destino não encontrada.")
+        if target.type != category.type:
+            raise InvalidCategoryReassignError(
+                "A categoria de destino tem de ser do mesmo tipo (receita/despesa)."
+            )
+        # Só as transações são reatribuídas — orçamentos e despesas recorrentes
+        # continuam a bloquear a eliminação (ver exceção abaixo), porque mover
+        # cada um teria de lidar com colisões no UNIQUE(user, categoria, mês) dos
+        # orçamentos, que não vale a pena resolver para um caso de uso secundário.
+        transaction_repository.reassign_category(
+            db, user_id=user_id, from_category_id=category_id, to_category_id=target.id
+        )
+
+    category_repository.delete(db, category)
+    try:
+        db.flush()
+    except IntegrityError as exc:
+        # FK ON DELETE RESTRICT de `transactions` (Fase 5), `budgets` (Fase 8) ou
+        # `recurring_expenses` (Fase 9) — a categoria está a ser usada. `rollback()`
+        # desfaz só até ao savepoint mais recente (ver tests/conftest.py), deixando a
+        # sessão utilizável.
+        db.rollback()
+        raise CategoryInUseError from exc

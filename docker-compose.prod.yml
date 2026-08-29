@@ -1,0 +1,51 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: fintrack
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?define POSTGRES_PASSWORD em .env.prod}"
+      POSTGRES_DB: fintrack
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fintrack"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    # Sem "ports": ao contrário do docker-compose.yml de desenvolvimento, o
+    # Postgres não é acedido a partir do host — só o backend lhe fala,
+    # dentro da rede interna do Compose.
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    restart: unless-stopped
+    environment:
+      ENVIRONMENT: production
+      DATABASE_URL: "postgresql+psycopg://fintrack:${POSTGRES_PASSWORD:?define POSTGRES_PASSWORD em .env.prod}@postgres:5432/fintrack"
+      SECRET_KEY: "${SECRET_KEY:?define SECRET_KEY em .env.prod, ver README}"
+      CORS_ORIGINS: "${CORS_ORIGINS:?define CORS_ORIGINS em .env.prod, ver .env.prod.example}"
+      UVICORN_WORKERS: "${UVICORN_WORKERS:-2}"
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+      args:
+        VITE_API_URL: "${VITE_API_URL:?define VITE_API_URL em .env.prod, ver .env.prod.example}"
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  postgres_data:

@@ -1,0 +1,48 @@
+[project]
+name = "fintrack-backend"
+version = "0.1.0"
+description = "FinTrack API — backend"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "pydantic-settings>=2.4",
+    "sqlalchemy>=2.0.52",
+    "alembic>=1.19.1",
+    "psycopg[binary]>=3.3.4",
+    "bcrypt>=4.0",
+    "pyjwt>=2.9",
+    "email-validator>=2.2",
+    "slowapi>=0.1.10",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "httpx>=0.27",
+    "ruff>=0.6",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["alembic/versions"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI usa `Depends(...)` como valor por omissão de propósito — é o
+# mecanismo de injeção de dependências do framework, não um bug.
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Cookie", "fastapi.Query", "fastapi.Header"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+[tool.uv]
+# É uma aplicação, não uma biblioteca a publicar — não faz sentido construir
+# um wheel instalável. Isto evita ter de configurar package discovery (hatchling)
+# só para satisfazer o build system.
+package = false

@@ -1,0 +1,27 @@
+export const ACCOUNT_TYPES = ['BANK', 'WALLET', 'SAVINGS', 'CREDIT_CARD', 'OTHER'] as const
+export type AccountType = (typeof ACCOUNT_TYPES)[number]
+
+export const ACCOUNT_TYPE_LABELS: Record<AccountType, string> = {
+  BANK: 'Banco',
+  WALLET: 'Carteira',
+  SAVINGS: 'Poupança',
+  CREDIT_CARD: 'Cartão de crédito',
+  OTHER: 'Outra',
+}
+
+export type Account = {
+  id: string
+  name: string
+  type: AccountType
+  // Decimal do backend chega sempre como string — ver features/auth/types.ts.
+  initial_balance: string
+  current_balance: string
+  created_at: string
+  updated_at: string
+}
+
+export type AccountInput = {
+  name: string
+  type: AccountType
+  initial_balance: string
+}

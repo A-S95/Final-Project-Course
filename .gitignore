@@ -1,0 +1,13 @@
+# Editores / SO
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+
+# Cada subprojeto tem o seu próprio .gitignore mais específico
+# (backend/.gitignore, frontend/.gitignore)
+
+# Segredos de produção (docker-compose.prod.yml) — nunca commitar
+.env.prod
+!.env.prod.example

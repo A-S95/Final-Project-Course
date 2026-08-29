@@ -1,0 +1,117 @@
+@import "tailwindcss";
+
+/*
+ * Sistema de tokens semânticos ("fintech premium" — dark-first, inspirado em
+ * Linear/Stripe/Mercury). As variáveis mudam de valor consoante o tema (media
+ * query ou [data-theme]), e o Tailwind gera utilities normais a partir delas
+ * (bg-canvas, text-ink-muted, ...) — por isso a maior parte do markup nunca
+ * precisa de escrever `dark:` explicitamente: a própria variável já muda.
+ */
+:root {
+  color-scheme: light dark;
+
+  --canvas: #f7f7fb;
+  --surface: #ffffff;
+  --surface-hover: #f1f1f6;
+  --surface-raised: #ffffff;
+  --border: #e6e6ef;
+  --border-strong: #d5d5e3;
+  --ink: #0c0d12;
+  --ink-muted: #62636f;
+  --ink-subtle: #9394a1;
+  --accent: #6552f5;
+  --accent-strong: #4f3ce0;
+  --accent-soft: #ede9ff;
+  --accent-foreground: #ffffff;
+  --accent-teal: #14b8a6;
+}
+
+/*
+ * Tema explícito via [data-theme] (alternador manual, persistido em
+ * localStorage — ver features/theme/) tem sempre prioridade sobre a
+ * preferência do sistema. Sem escolha explícita, segue o SO como antes.
+ */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --canvas: #08080d;
+    --surface: #100f18;
+    --surface-hover: #171623;
+    --surface-raised: #17162a;
+    --border: #232231;
+    --border-strong: #322f45;
+    --ink: #f3f3f7;
+    --ink-muted: #9d9dae;
+    --ink-subtle: #6d6d80;
+    --accent: #8c7bff;
+    --accent-strong: #a494ff;
+    --accent-soft: #211c3f;
+    --accent-foreground: #0c0d12;
+    --accent-teal: #2dd4bf;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --canvas: #08080d;
+  --surface: #100f18;
+  --surface-hover: #171623;
+  --surface-raised: #17162a;
+  --border: #232231;
+  --border-strong: #322f45;
+  --ink: #f3f3f7;
+  --ink-muted: #9d9dae;
+  --ink-subtle: #6d6d80;
+  --accent: #8c7bff;
+  --accent-strong: #a494ff;
+  --accent-soft: #211c3f;
+  --accent-foreground: #0c0d12;
+  --accent-teal: #2dd4bf;
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+@theme inline {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Space Grotesk", "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-surface-hover: var(--surface-hover);
+  --color-surface-raised: var(--surface-raised);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-subtle: var(--ink-subtle);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent-teal: var(--accent-teal);
+}
+
+body {
+  margin: 0;
+  background-color: var(--canvas);
+  color: var(--ink);
+  font-family: var(--font-sans);
+}
+
+/* Gradiente de marca reutilizável — texto ("bg-clip-text") ou fundos de destaque. */
+.brand-gradient {
+  background-image: linear-gradient(135deg, var(--accent) 0%, var(--accent-teal) 100%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

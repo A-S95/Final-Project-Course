@@ -1,0 +1,17 @@
+# O Dockerfile só copia `app/` e os manifestos, mas manter o contexto pequeno
+# acelera o build e evita enviar segredos/artefactos para o daemon.
+.venv
+__pycache__
+*.py[cod]
+.pytest_cache
+.ruff_cache
+*.egg-info
+
+.env
+.env.example
+
+tests
+alembic/versions/__pycache__
+.git
+.vscode
+.idea
