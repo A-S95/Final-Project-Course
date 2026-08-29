@@ -52,7 +52,7 @@ export function SettingsPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-svh max-w-lg flex-col gap-6 p-4 py-10">
+    <main className="mx-auto flex min-h-svh w-full max-w-lg flex-col gap-6 p-4 py-10">
       <PageHeader title="Definições" />
 
       <Card>

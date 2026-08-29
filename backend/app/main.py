@@ -85,9 +85,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(
-    title="FinTrack API",
+    title="CentiSible API",
     version="0.1.0",
-    description="API da plataforma de gestão de finanças pessoais FinTrack.",
+    description="API da plataforma de gestão de finanças pessoais CentiSible.",
     lifespan=lifespan,
 )
 

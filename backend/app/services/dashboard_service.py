@@ -68,7 +68,17 @@ def get_summary(
     net = total_income - total_expenses
 
     breakdown = [
-        CategoryExpense(category_id=row[0], name=row[1], color=row[2], total=_money(row[3]))
+        CategoryExpense(
+            category_id=row[0],
+            name=row[1],
+            color=row[2],
+            total=_money(row[3]),
+            # Partilhada (row[4]): já está fundida entre todas as pessoas que a
+            # marcaram, "de quem é" deixou de fazer sentido. Só as linhas
+            # pessoais (na vista de agregado) identificam o dono, para não
+            # confundir com a despesa homónima de outro membro.
+            owner_name=None if row[4] else row[5],
+        )
         for row in dashboard_repository.expenses_by_category(
             db,
             user_ids,

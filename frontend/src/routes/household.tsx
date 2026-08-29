@@ -238,7 +238,7 @@ function HouseholdView({ household }: { household: Household }) {
   })
 
   return (
-    <>
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:items-start">
       <Card>
         <CardHeader>
           <CardTitle className="text-base">{household.name}</CardTitle>
@@ -303,7 +303,7 @@ function HouseholdView({ household }: { household: Household }) {
           <SentInvites />
         </CardContent>
       </Card>
-    </>
+    </div>
   )
 }
 
@@ -319,7 +319,7 @@ export function HouseholdPage() {
   })
 
   return (
-    <main className="mx-auto flex min-h-svh max-w-2xl flex-col gap-6 p-4 py-10">
+    <main className="mx-auto flex min-h-svh w-full max-w-[2200px] flex-col gap-6 p-4 py-10 xl:p-10">
       <PageHeader title="Agregado familiar" />
 
       {isLoading && <p className="text-sm text-ink-muted">A carregar...</p>}

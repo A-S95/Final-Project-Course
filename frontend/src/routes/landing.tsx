@@ -1,17 +1,28 @@
 import { Link, Navigate } from 'react-router-dom'
 import { motion, useReducedMotion } from 'motion/react'
+import { Logo, LogoMark } from '@/components/logo'
 import { buttonVariants } from '@/components/ui/button'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/features/auth/use-auth'
 
-function Logo() {
+// Assinatura visual da landing: a moeda "assenta" ao carregar a página, como
+// se tivesse acabado de ser lançada ao ar — só acontece uma vez, na primeira
+// impressão, nunca mais se repete durante a navegação.
+function AnimatedLogo() {
+  const reduceMotion = useReducedMotion()
+
   return (
     <span className="font-display flex items-center gap-2 text-lg font-semibold tracking-tight text-ink">
-      <span className="brand-gradient flex h-7 w-7 items-center justify-center rounded-lg text-sm font-bold text-white">
-        F
-      </span>
-      FinTrack
+      <motion.span
+        style={{ perspective: 300 }}
+        initial={reduceMotion ? false : { rotateY: -110, opacity: 0 }}
+        animate={{ rotateY: 0, opacity: 1 }}
+        transition={{ duration: 0.7, ease: [0.34, 1.56, 0.64, 1] }}
+      >
+        <LogoMark className="h-7 w-7" />
+      </motion.span>
+      CentiSible
     </span>
   )
 }
@@ -20,7 +31,7 @@ function Nav() {
   return (
     <header className="sticky top-0 z-20 border-b border-border/60 bg-canvas/70 backdrop-blur-md">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
-        <Logo />
+        <AnimatedLogo />
         <nav className="flex items-center gap-3 text-sm">
           <ThemeToggle />
           <Link to="/login" className="px-3 py-2 text-ink-muted hover:text-ink">
@@ -294,7 +305,7 @@ function Footer() {
   return (
     <footer className="border-t border-border">
       <div className="mx-auto flex max-w-6xl flex-col items-center gap-3 px-4 py-8 text-sm text-ink-subtle sm:flex-row sm:justify-between sm:px-6">
-        <Logo />
+        <Logo markClassName="h-7 w-7" textClassName="text-lg tracking-tight" />
         <p>Projeto pessoal de gestão financeira.</p>
       </div>
     </footer>

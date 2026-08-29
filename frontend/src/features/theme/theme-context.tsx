@@ -2,7 +2,7 @@ import { createContext, useCallback, useEffect, useState, type ReactNode } from 
 
 export type Theme = 'light' | 'dark'
 
-const STORAGE_KEY = 'fintrack-theme'
+const STORAGE_KEY = 'centisible-theme'
 
 function systemPrefersDark() {
   return window.matchMedia('(prefers-color-scheme: dark)').matches

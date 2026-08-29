@@ -230,8 +230,8 @@ def test_leave_when_not_in_household_returns_404(client: TestClient) -> None:
 
 
 def test_dashboard_household_scope_aggregates_all_members(client: TestClient) -> None:
-    a = _make_user(client, "a@example.com")
-    b = _make_user(client, "b@example.com")
+    a = _make_user(client, "a@example.com", "Antonio")
+    b = _make_user(client, "b@example.com", "Beatriz")
     _create_household(client, a["headers"])
     invite_id = _invite(client, a["headers"], "b@example.com").json()["id"]
     client.post(f"{HOUSEHOLDS_URL}/invites/{invite_id}/accept", headers=b["headers"])
@@ -269,19 +269,80 @@ def test_dashboard_household_scope_aggregates_all_members(client: TestClient) ->
     assert household["scope"] == "household"
     assert household["total_expenses"] == "65.00"
     assert household["total_balance"] == "85.00"
-    # As duas categorias "Comida" (uma de cada membro) fundem-se numa só linha na
-    # vista de agregado — ver dashboard_repository.expenses_by_category
-    # (group_by_name). Sem isto, um casal via a mesma despesa do dia-a-dia
-    # aparecer duplicada por categoria só por ambos terem uma categoria com o
-    # mesmo nome.
-    assert household["expenses_by_category"] == [
-        {
-            "category_id": household["expenses_by_category"][0]["category_id"],
-            "name": "Comida",
-            "color": None,
-            "total": "65.00",
-        }
-    ]
+    # As duas categorias "Comida" (uma de cada membro) são despesas pessoais
+    # (`is_shared` por omissão é `False`) que só por coincidência têm o mesmo
+    # nome — cada uma paga a sua própria comida, não é um custo partilhado.
+    # Ficam em duas linhas separadas, uma por pessoa, identificadas por
+    # `owner_name` — juntá-las numa só somaria duas despesas independentes
+    # como se fossem uma, o que seria enganador (ver
+    # test_dashboard_household_merges_shared_expenses_with_same_category_name
+    # para o caso em que devem mesmo fundir-se).
+    breakdown = household["expenses_by_category"]
+    assert {(row["name"], row["owner_name"], row["total"]) for row in breakdown} == {
+        ("Comida", "Antonio", "40.00"),
+        ("Comida", "Beatriz", "25.00"),
+    }
+
+
+def test_dashboard_household_merges_shared_expenses_with_same_category_name(
+    client: TestClient,
+) -> None:
+    a = _make_user(client, "a@example.com", "Antonio")
+    b = _make_user(client, "b@example.com", "Beatriz")
+    _create_household(client, a["headers"])
+    invite_id = _invite(client, a["headers"], "b@example.com").json()["id"]
+    client.post(f"{HOUSEHOLDS_URL}/invites/{invite_id}/accept", headers=b["headers"])
+
+    acc_a = create_account(client, a["headers"], name="Conta A", initial_balance="0")
+    acc_b = create_account(client, b["headers"], name="Conta B", initial_balance="0")
+    cat_a = create_category(client, a["headers"], name="Renda", type="EXPENSE")
+    cat_b = create_category(client, b["headers"], name="Renda", type="EXPENSE")
+
+    # Os dois pagam metade da mesma renda e marcam-na como partilhada — é um
+    # único custo da casa, não duas rendas diferentes.
+    for headers, account, category, amount in (
+        (a["headers"], acc_a, cat_a, "420.00"),
+        (b["headers"], acc_b, cat_b, "420.00"),
+    ):
+        client.post(
+            TRANSACTIONS_URL,
+            json={
+                "account_id": account["id"],
+                "category_id": category["id"],
+                "type": "EXPENSE",
+                "amount": amount,
+                "date": "2026-08-05",
+                "is_shared": True,
+            },
+            headers=headers,
+        )
+    # Uma despesa pessoal da Beatriz, não partilhada, categoria diferente —
+    # só aqui para confirmar que não se mistura com a renda fundida.
+    cat_lazer = create_category(client, b["headers"], name="Lazer", type="EXPENSE")
+    client.post(
+        TRANSACTIONS_URL,
+        json={
+            "account_id": acc_b["id"],
+            "category_id": cat_lazer["id"],
+            "type": "EXPENSE",
+            "amount": "30.00",
+            "date": "2026-08-06",
+            "is_shared": False,
+        },
+        headers=b["headers"],
+    )
+
+    household = client.get(
+        DASHBOARD_URL,
+        params={"month": "2026-08-01", "scope": "household"},
+        headers=a["headers"],
+    ).json()
+
+    breakdown = household["expenses_by_category"]
+    assert {(row["name"], row["owner_name"], row["total"]) for row in breakdown} == {
+        ("Renda", None, "840.00"),
+        ("Lazer", "Beatriz", "30.00"),
+    }
 
 
 def test_dashboard_shared_expenses_total_counts_only_is_shared(client: TestClient) -> None:

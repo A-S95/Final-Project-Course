@@ -20,9 +20,9 @@ export async function registerUser(
   await page.locator('#email').fill(email)
   await page.locator('#password').fill(password)
   await page.getByRole('button', { name: 'Criar conta' }).click()
-  // Espera pelo URL do dashboard, não pelo texto "FinTrack" — o título da
-  // própria página de registo ("Criar conta no FinTrack") também contém essa
-  // substring e faz o getByRole por nome corresponder demasiado cedo.
+  // Espera pelo URL do dashboard, não pelo texto "CentiSible" — o título da
+  // própria página de registo também contém a marca e faz o getByRole por
+  // nome corresponder demasiado cedo.
   await expect(page).toHaveURL('/dashboard')
 
   return { email, password, name }

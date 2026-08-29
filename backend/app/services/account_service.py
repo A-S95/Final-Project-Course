@@ -1,4 +1,5 @@
 import uuid
+from datetime import date
 from decimal import Decimal
 
 from sqlalchemy.exc import IntegrityError
@@ -21,10 +22,23 @@ def get_account(db: Session, *, user_id: uuid.UUID, account_id: uuid.UUID) -> Ac
 
 
 def create_account(
-    db: Session, *, user_id: uuid.UUID, name: str, type: AccountType, initial_balance: Decimal
+    db: Session,
+    *,
+    user_id: uuid.UUID,
+    name: str,
+    type: AccountType,
+    initial_balance: Decimal,
+    card_expiration_date: date | None = None,
+    card_plafond: Decimal | None = None,
 ) -> Account:
     return account_repository.create(
-        db, user_id=user_id, name=name, type=type, initial_balance=initial_balance
+        db,
+        user_id=user_id,
+        name=name,
+        type=type,
+        initial_balance=initial_balance,
+        card_expiration_date=card_expiration_date,
+        card_plafond=card_plafond,
     )
 
 
@@ -36,6 +50,10 @@ def update_account(
     name: str | None,
     type: AccountType | None,
     initial_balance: Decimal | None,
+    card_expiration_date: date | None = None,
+    card_expiration_date_set: bool = False,
+    card_plafond: Decimal | None = None,
+    card_plafond_set: bool = False,
 ) -> Account:
     account = get_account(db, user_id=user_id, account_id=account_id)
 
@@ -50,6 +68,13 @@ def update_account(
         delta = initial_balance - account.initial_balance
         account.current_balance += delta
         account.initial_balance = initial_balance
+    # Estes dois aceitam `null` como valor de destino válido (deixar de
+    # tratar a conta como cartão) — por isso o "foi enviado?" vem à parte
+    # do próprio valor, em vez do padrão "None = não mexer" usado acima.
+    if card_expiration_date_set:
+        account.card_expiration_date = card_expiration_date
+    if card_plafond_set:
+        account.card_plafond = card_plafond
 
     db.flush()
     return account

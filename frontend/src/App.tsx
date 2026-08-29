@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, type ReactNode } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { BrowserRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { ErrorBoundary } from '@/components/error-boundary'
@@ -46,7 +46,10 @@ const SettingsPage = lazy(() =>
   import('@/routes/settings').then((m) => ({ default: m.SettingsPage })),
 )
 
-function AnimatedRoutes() {
+// Só as rotas públicas (sem sidebar) usam esta transição de página inteira —
+// as protegidas têm a sua própria, mais local, dentro do <ProtectedRoute/>
+// (ver routes/protected-route.tsx), para a navegação lateral nunca desmontar.
+function PublicPageTransition({ children }: { children: ReactNode }) {
   const location = useLocation()
   const reduceMotion = useReducedMotion()
 
@@ -59,95 +62,56 @@ function AnimatedRoutes() {
         exit={reduceMotion ? undefined : { opacity: 0 }}
         transition={{ duration: reduceMotion ? 0 : 0.18, ease: 'easeOut' }}
       >
-        <Suspense fallback={<Splash />}>
-          <Routes location={location}>
-            <Route path="/" element={<LandingPage />} />
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/registar" element={<RegisterPage />} />
-            <Route
-              path="/dashboard"
-              element={
-                <ProtectedRoute>
-                  <DashboardPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/contas"
-              element={
-                <ProtectedRoute>
-                  <AccountsPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/categorias"
-              element={
-                <ProtectedRoute>
-                  <CategoriesPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/transacoes"
-              element={
-                <ProtectedRoute>
-                  <TransactionsPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/agregado"
-              element={
-                <ProtectedRoute>
-                  <HouseholdPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/orcamentos"
-              element={
-                <ProtectedRoute>
-                  <BudgetsPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/recorrentes"
-              element={
-                <ProtectedRoute>
-                  <RecurringPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/objetivos"
-              element={
-                <ProtectedRoute>
-                  <GoalsPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/historico"
-              element={
-                <ProtectedRoute>
-                  <HistoryPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/definicoes"
-              element={
-                <ProtectedRoute>
-                  <SettingsPage />
-                </ProtectedRoute>
-              }
-            />
-          </Routes>
-        </Suspense>
+        {children}
       </motion.div>
     </AnimatePresence>
+  )
+}
+
+function AnimatedRoutes() {
+  const location = useLocation()
+
+  return (
+    <Suspense fallback={<Splash />}>
+      <Routes location={location}>
+        <Route
+          path="/"
+          element={
+            <PublicPageTransition>
+              <LandingPage />
+            </PublicPageTransition>
+          }
+        />
+        <Route
+          path="/login"
+          element={
+            <PublicPageTransition>
+              <LoginPage />
+            </PublicPageTransition>
+          }
+        />
+        <Route
+          path="/registar"
+          element={
+            <PublicPageTransition>
+              <RegisterPage />
+            </PublicPageTransition>
+          }
+        />
+        <Route element={<ProtectedRoute />}>
+          <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/contas" element={<AccountsPage />} />
+          <Route path="/categorias" element={<CategoriesPage />} />
+          <Route path="/transacoes" element={<TransactionsPage />} />
+          <Route path="/agregado" element={<HouseholdPage />} />
+          <Route path="/orcamentos" element={<BudgetsPage />} />
+          <Route path="/recorrentes" element={<RecurringPage />} />
+          <Route path="/objetivos" element={<GoalsPage />} />
+          <Route path="/historico" element={<HistoryPage />} />
+          <Route path="/definicoes" element={<SettingsPage />} />
+        </Route>
+      </Routes>
+    </Suspense>
   )
 }
 

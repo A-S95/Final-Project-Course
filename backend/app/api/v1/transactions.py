@@ -1,14 +1,17 @@
 import uuid
 from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
 from app.core.exceptions import (
     AccountNotFoundError,
     CategoryNotFoundError,
+    InvalidReceiptError,
     InvalidTransactionError,
+    ReceiptNotFoundError,
     TransactionNotFoundError,
 )
 from app.db.session import get_db
@@ -120,3 +123,65 @@ def delete_transaction(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Transação não encontrada.") from exc
 
     db.commit()
+
+
+@router.post("/{transaction_id}/receipt", response_model=TransactionRead)
+async def upload_receipt(
+    transaction_id: uuid.UUID,
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> TransactionRead:
+    content = await file.read()
+    try:
+        transaction = transaction_service.save_receipt(
+            db,
+            user_id=current_user.id,
+            transaction_id=transaction_id,
+            content=content,
+            content_type=file.content_type or "application/octet-stream",
+        )
+    except TransactionNotFoundError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Transação não encontrada.") from exc
+    except InvalidReceiptError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, exc.message) from exc
+
+    db.commit()
+    return TransactionRead.model_validate(transaction)
+
+
+@router.get("/{transaction_id}/receipt")
+def download_receipt(
+    transaction_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Response:
+    try:
+        content, content_type = transaction_service.get_receipt(
+            db, user_id=current_user.id, transaction_id=transaction_id
+        )
+    except TransactionNotFoundError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Transação não encontrada.") from exc
+    except ReceiptNotFoundError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Esta transação não tem recibo.") from exc
+
+    return Response(content=content, media_type=content_type)
+
+
+@router.delete("/{transaction_id}/receipt", response_model=TransactionRead)
+def remove_receipt(
+    transaction_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> TransactionRead:
+    try:
+        transaction = transaction_service.delete_receipt(
+            db, user_id=current_user.id, transaction_id=transaction_id
+        )
+    except TransactionNotFoundError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Transação não encontrada.") from exc
+    except ReceiptNotFoundError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Esta transação não tem recibo.") from exc
+
+    db.commit()
+    return TransactionRead.model_validate(transaction)

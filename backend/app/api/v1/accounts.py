@@ -33,6 +33,8 @@ def create_account(
         name=payload.name,
         type=payload.type,
         initial_balance=payload.initial_balance,
+        card_expiration_date=payload.card_expiration_date,
+        card_plafond=payload.card_plafond,
     )
     db.commit()
     return AccountRead.model_validate(account)
@@ -53,6 +55,10 @@ def update_account(
             name=payload.name,
             type=payload.type,
             initial_balance=payload.initial_balance,
+            card_expiration_date=payload.card_expiration_date,
+            card_expiration_date_set="card_expiration_date" in payload.model_fields_set,
+            card_plafond=payload.card_plafond,
+            card_plafond_set="card_plafond" in payload.model_fields_set,
         )
     except AccountNotFoundError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Conta não encontrada.") from exc

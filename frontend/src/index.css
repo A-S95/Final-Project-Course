@@ -1,29 +1,34 @@
 @import "tailwindcss";
 
 /*
- * Sistema de tokens semânticos ("fintech premium" — dark-first, inspirado em
- * Linear/Stripe/Mercury). As variáveis mudam de valor consoante o tema (media
- * query ou [data-theme]), e o Tailwind gera utilities normais a partir delas
+ * Sistema de tokens semânticos ("Oliva" — verde profundo como cor de marca,
+ * âmbar como acento raro; ver docs/DEV_JOURNAL.md "Nova paleta de marca"
+ * para o porquê). As variáveis mudam de valor consoante o tema (media query
+ * ou [data-theme]), e o Tailwind gera utilities normais a partir delas
  * (bg-canvas, text-ink-muted, ...) — por isso a maior parte do markup nunca
  * precisa de escrever `dark:` explicitamente: a própria variável já muda.
+ * Importante: o verde de marca (`--accent`) é deliberadamente mais escuro/
+ * floresta do que o verde-esmeralda já usado para "receita"/"positivo"
+ * (Tailwind `emerald-500`, usado à parte, sem passar por estas variáveis) —
+ * para nunca se confundirem visualmente.
  */
 :root {
   color-scheme: light dark;
 
-  --canvas: #f7f7fb;
+  --canvas: #f7f9f7;
   --surface: #ffffff;
-  --surface-hover: #f1f1f6;
+  --surface-hover: #eef2ee;
   --surface-raised: #ffffff;
-  --border: #e6e6ef;
-  --border-strong: #d5d5e3;
-  --ink: #0c0d12;
-  --ink-muted: #62636f;
-  --ink-subtle: #9394a1;
-  --accent: #6552f5;
-  --accent-strong: #4f3ce0;
-  --accent-soft: #ede9ff;
+  --border: #e0e6e0;
+  --border-strong: #cdd6cc;
+  --ink: #10140f;
+  --ink-muted: #5c6459;
+  --ink-subtle: #8b9187;
+  --accent: #1f7a4c;
+  --accent-strong: #155e3a;
+  --accent-soft: #dcf2e3;
   --accent-foreground: #ffffff;
-  --accent-teal: #14b8a6;
+  --accent-amber: #b45309;
 }
 
 /*
@@ -33,39 +38,39 @@
  */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --canvas: #08080d;
-    --surface: #100f18;
-    --surface-hover: #171623;
-    --surface-raised: #17162a;
-    --border: #232231;
-    --border-strong: #322f45;
-    --ink: #f3f3f7;
-    --ink-muted: #9d9dae;
-    --ink-subtle: #6d6d80;
-    --accent: #8c7bff;
-    --accent-strong: #a494ff;
-    --accent-soft: #211c3f;
-    --accent-foreground: #0c0d12;
-    --accent-teal: #2dd4bf;
+    --canvas: #090d0a;
+    --surface: #12180f;
+    --surface-hover: #192016;
+    --surface-raised: #171d13;
+    --border: #223022;
+    --border-strong: #2f3f2c;
+    --ink: #eef2ee;
+    --ink-muted: #9aa79a;
+    --ink-subtle: #6b7669;
+    --accent: #4ade80;
+    --accent-strong: #86efac;
+    --accent-soft: #16301f;
+    --accent-foreground: #062012;
+    --accent-amber: #fbbf24;
     color-scheme: dark;
   }
 }
 
 :root[data-theme="dark"] {
-  --canvas: #08080d;
-  --surface: #100f18;
-  --surface-hover: #171623;
-  --surface-raised: #17162a;
-  --border: #232231;
-  --border-strong: #322f45;
-  --ink: #f3f3f7;
-  --ink-muted: #9d9dae;
-  --ink-subtle: #6d6d80;
-  --accent: #8c7bff;
-  --accent-strong: #a494ff;
-  --accent-soft: #211c3f;
-  --accent-foreground: #0c0d12;
-  --accent-teal: #2dd4bf;
+  --canvas: #090d0a;
+  --surface: #12180f;
+  --surface-hover: #192016;
+  --surface-raised: #171d13;
+  --border: #223022;
+  --border-strong: #2f3f2c;
+  --ink: #eef2ee;
+  --ink-muted: #9aa79a;
+  --ink-subtle: #6b7669;
+  --accent: #4ade80;
+  --accent-strong: #86efac;
+  --accent-soft: #16301f;
+  --accent-foreground: #062012;
+  --accent-amber: #fbbf24;
   color-scheme: dark;
 }
 
@@ -90,7 +95,7 @@
   --color-accent-strong: var(--accent-strong);
   --color-accent-soft: var(--accent-soft);
   --color-accent-foreground: var(--accent-foreground);
-  --color-accent-teal: var(--accent-teal);
+  --color-accent-amber: var(--accent-amber);
 }
 
 body {
@@ -102,7 +107,7 @@ body {
 
 /* Gradiente de marca reutilizável — texto ("bg-clip-text") ou fundos de destaque. */
 .brand-gradient {
-  background-image: linear-gradient(135deg, var(--accent) 0%, var(--accent-teal) 100%);
+  background-image: linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%);
 }
 
 @media (prefers-reduced-motion: reduce) {

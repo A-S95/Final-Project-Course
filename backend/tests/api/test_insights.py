@@ -220,5 +220,69 @@ def test_insights_isolated_per_user(client: TestClient) -> None:
     assert client.get(INSIGHTS_URL, params={"month": "2026-08-15"}, headers=headers_b).json() == []
 
 
+def test_card_expiring_soon_insight(client: TestClient) -> None:
+    headers = register_and_get_headers(client)
+    soon = (date.today() + timedelta(days=10)).isoformat()
+    create_account(client, headers, name="Universo", type="CREDIT_CARD",
+                    card_expiration_date=soon)
+
+    items = client.get(INSIGHTS_URL, headers=headers).json()
+    insight = next(i for i in items if i["rule"] == "card_expiring_soon")
+    assert insight["severity"] == "warning"
+    assert "Universo" in insight["title"]
+
+
+def test_card_expired_insight(client: TestClient) -> None:
+    headers = register_and_get_headers(client)
+    past = (date.today() - timedelta(days=3)).isoformat()
+    create_account(client, headers, name="Revolut", type="CREDIT_CARD",
+                    card_expiration_date=past)
+
+    items = client.get(INSIGHTS_URL, headers=headers).json()
+    assert "card_expired" in _rules(items)
+
+
+def test_card_expiration_far_away_no_insight(client: TestClient) -> None:
+    headers = register_and_get_headers(client)
+    far = (date.today() + timedelta(days=200)).isoformat()
+    create_account(client, headers, name="Revolut", type="CREDIT_CARD",
+                    card_expiration_date=far)
+
+    items = client.get(INSIGHTS_URL, headers=headers).json()
+    assert "card_expiring_soon" not in _rules(items)
+    assert "card_expired" not in _rules(items)
+
+
+def test_card_below_plafond_insight(client: TestClient) -> None:
+    headers = register_and_get_headers(client)
+    create_account(client, headers, name="Universo", type="CREDIT_CARD",
+                    initial_balance="400.00", card_plafond="1000.00")
+
+    items = client.get(INSIGHTS_URL, headers=headers).json()
+    insight = next(i for i in items if i["rule"] == "card_below_plafond")
+    assert insight["severity"] == "warning"
+    assert "Universo" in insight["title"]
+    assert "600,00" in insight["detail"]  # falta recarregar 1000 - 400
+
+
+def test_card_at_plafond_no_insight(client: TestClient) -> None:
+    headers = register_and_get_headers(client)
+    create_account(client, headers, name="Universo", type="CREDIT_CARD",
+                    initial_balance="1000.00", card_plafond="1000.00")
+
+    items = client.get(INSIGHTS_URL, headers=headers).json()
+    assert "card_below_plafond" not in _rules(items)
+
+
+def test_card_insights_only_on_current_month(client: TestClient) -> None:
+    headers = register_and_get_headers(client)
+    past = (date.today() - timedelta(days=3)).isoformat()
+    create_account(client, headers, name="Revolut", type="CREDIT_CARD",
+                    card_expiration_date=past)
+
+    items = client.get(INSIGHTS_URL, params={"month": "2020-01-01"}, headers=headers).json()
+    assert "card_expired" not in _rules(items)
+
+
 def test_insights_require_authentication(client: TestClient) -> None:
     assert client.get(INSIGHTS_URL).status_code == 401

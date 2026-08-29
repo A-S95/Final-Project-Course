@@ -62,26 +62,45 @@ type RequestOptions = {
   skipAuthRetry?: boolean
 }
 
-async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+/** Base comum a `request` (JSON) e aos dois helpers de ficheiros abaixo —
+ * token + renovação em 401 num só sítio, para não duplicar essa dança. */
+async function authedFetch(
+  path: string,
+  init: RequestInit,
+  skipAuthRetry = false,
+): Promise<Response> {
   const doFetch = (token: string | null) =>
     fetch(`${API_URL}${path}`, {
-      method: options.method ?? 'GET',
+      ...init,
       credentials: 'include',
       headers: {
-        'Content-Type': 'application/json',
+        ...init.headers,
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-      body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
     })
 
   let response = await doFetch(getAccessToken())
 
-  if (response.status === 401 && !options.skipAuthRetry) {
+  if (response.status === 401 && !skipAuthRetry) {
     const refreshed = await refreshSession()
     if (refreshed) {
       response = await doFetch(refreshed.access_token)
     }
   }
+
+  return response
+}
+
+async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const response = await authedFetch(
+    path,
+    {
+      method: options.method ?? 'GET',
+      headers: { 'Content-Type': 'application/json' },
+      body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
+    },
+    options.skipAuthRetry,
+  )
 
   if (!response.ok) {
     const detail = await response.json().catch(() => null)
@@ -94,6 +113,32 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   return (await response.json()) as T
 }
 
+/** Upload multipart — nunca definir Content-Type à mão, o browser trata do
+ * boundary sozinho quando o body é um FormData. */
+async function uploadFile<T>(path: string, file: File): Promise<T> {
+  const formData = new FormData()
+  formData.append('file', file)
+  const response = await authedFetch(path, { method: 'POST', body: formData })
+
+  if (!response.ok) {
+    const detail = await response.json().catch(() => null)
+    throw new ApiError(response.status, detail?.detail ?? `HTTP ${response.status}`)
+  }
+  return (await response.json()) as T
+}
+
+/** Ficheiros protegidos (ex: recibos) não podem ir num `<img src>` direto —
+ * um pedido de imagem do browser não leva o header Authorization. Busca-se
+ * como blob autenticado e cria-se um object URL local (ver `URL.revokeObjectURL`
+ * do lado de quem chama, quando a imagem deixar de ser precisa). */
+async function fetchBlob(path: string): Promise<Blob> {
+  const response = await authedFetch(path, { method: 'GET' })
+  if (!response.ok) {
+    throw new ApiError(response.status, `HTTP ${response.status}`)
+  }
+  return response.blob()
+}
+
 export const apiClient = {
   get: <T>(path: string) => request<T>(path),
   post: <T>(path: string, body?: unknown, options?: Omit<RequestOptions, 'method' | 'body'>) =>
@@ -102,4 +147,6 @@ export const apiClient = {
     request<T>(path, { ...options, method: 'PATCH', body }),
   delete: <T>(path: string, options?: Omit<RequestOptions, 'method' | 'body'>) =>
     request<T>(path, { ...options, method: 'DELETE' }),
+  uploadFile,
+  fetchBlob,
 }

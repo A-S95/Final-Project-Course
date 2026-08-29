@@ -12,8 +12,8 @@ test('edita o nome e a moeda em Definições e o dashboard reflete a mudança', 
   await expect(page.getByText('Definições guardadas.')).toBeVisible()
 
   await page.goto('/dashboard')
-  await expect(page.getByText('Olá, Fernanda Editada')).toBeVisible()
+  await expect(page.getByText('Olá, Fernanda')).toBeVisible()
 
   await page.reload()
-  await expect(page.getByText('Olá, Fernanda Editada')).toBeVisible()
+  await expect(page.getByText('Olá, Fernanda')).toBeVisible()
 })

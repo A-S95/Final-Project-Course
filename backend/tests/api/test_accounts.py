@@ -80,5 +80,78 @@ def test_delete_account(client: TestClient) -> None:
     assert list_response.json() == []
 
 
+def test_create_account_with_card_fields(client: TestClient) -> None:
+    headers = register_and_get_headers(client)
+
+    body = create_account(
+        client, headers, name="Universo", type="CREDIT_CARD",
+        card_expiration_date="2027-05-31", card_plafond="1000.00",
+    )
+
+    assert body["card_expiration_date"] == "2027-05-31"
+    assert body["card_plafond"] == "1000.00"
+
+
+def test_create_account_without_card_fields_defaults_to_null(client: TestClient) -> None:
+    headers = register_and_get_headers(client)
+
+    body = create_account(client, headers)
+
+    assert body["card_expiration_date"] is None
+    assert body["card_plafond"] is None
+
+
+def test_update_card_fields(client: TestClient) -> None:
+    headers = register_and_get_headers(client)
+    account = create_account(client, headers, type="CREDIT_CARD")
+
+    response = client.patch(
+        f"{ACCOUNTS_URL}/{account['id']}",
+        json={"card_expiration_date": "2028-01-31", "card_plafond": "500.00"},
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["card_expiration_date"] == "2028-01-31"
+    assert body["card_plafond"] == "500.00"
+
+
+def test_update_can_clear_card_fields_explicitly(client: TestClient) -> None:
+    headers = register_and_get_headers(client)
+    account = create_account(
+        client, headers, type="CREDIT_CARD",
+        card_expiration_date="2028-01-31", card_plafond="500.00",
+    )
+
+    response = client.patch(
+        f"{ACCOUNTS_URL}/{account['id']}",
+        json={"card_expiration_date": None, "card_plafond": None},
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["card_expiration_date"] is None
+    assert body["card_plafond"] is None
+
+
+def test_update_omitting_card_fields_leaves_them_untouched(client: TestClient) -> None:
+    headers = register_and_get_headers(client)
+    account = create_account(
+        client, headers, type="CREDIT_CARD",
+        card_expiration_date="2028-01-31", card_plafond="500.00",
+    )
+
+    response = client.patch(
+        f"{ACCOUNTS_URL}/{account['id']}", json={"name": "Universo renomeado"}, headers=headers
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["card_expiration_date"] == "2028-01-31"
+    assert body["card_plafond"] == "500.00"
+
+
 def test_accounts_require_authentication(client: TestClient) -> None:
     assert client.get(ACCOUNTS_URL).status_code == 401

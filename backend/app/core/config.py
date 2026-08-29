@@ -19,6 +19,11 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 15
     refresh_token_expire_days: int = 30
 
+    # Relativo ao diretório de trabalho do processo (`/app` no container,
+    # `backend/` em execução local) — ver docker-compose.yml (volume
+    # `uploads_data`) para o disco persistir entre reinícios do container.
+    uploads_dir: str = "uploads"
+
     @property
     def is_production(self) -> bool:
         return self.environment.lower() not in ("development", "dev", "local", "test")

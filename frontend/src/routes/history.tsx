@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { motion, useReducedMotion } from 'motion/react'
 import { useMemo, useState } from 'react'
 import {
@@ -58,20 +58,18 @@ function ChangeRow({
 
   return (
     <motion.div
-      initial={reduceMotion ? false : { opacity: 0, x: -8 }}
-      animate={{ opacity: 1, x: 0 }}
+      initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, delay: index * 0.08, ease: 'easeOut' }}
-      className="flex items-center justify-between gap-3 border-b border-border py-3 last:border-0"
+      className="flex flex-col gap-1.5 border-b border-border py-4 last:border-0 sm:border-b-0 sm:border-r sm:py-0 sm:pl-6 sm:first:pl-0 sm:last:border-0"
     >
       <span className="text-sm text-ink-muted">{label}</span>
-      <div className="flex items-center gap-3 text-sm">
-        <span className="tabular-nums font-medium text-ink">{formatMoney(current, currency)}</span>
-        <span className={`tabular-nums ${color}`}>
-          {isFlat
-            ? 'sem variação'
-            : `${arrow} ${formatMoney(Math.abs(delta), currency)}${pctText}`}
-        </span>
-      </div>
+      <span className="text-xl font-semibold tabular-nums text-ink">
+        {formatMoney(current, currency)}
+      </span>
+      <span className={`text-sm tabular-nums ${color}`}>
+        {isFlat ? 'sem variação' : `${arrow} ${formatMoney(Math.abs(delta), currency)}${pctText}`}
+      </span>
     </motion.div>
   )
 }
@@ -88,7 +86,7 @@ function ComparisonCard({
       <CardHeader>
         <CardTitle className="text-base">Comparação com o mês anterior</CardTitle>
       </CardHeader>
-      <CardContent className="flex flex-col">
+      <CardContent className="grid grid-cols-1 sm:grid-cols-3">
         <ChangeRow
           index={0}
           label="Receitas"
@@ -129,22 +127,28 @@ export function HistoryPage() {
   const [month, setMonth] = useState(currentMonth)
   const isCurrentMonth = isSameMonth(month, currentMonth)
   const isoMonth = toIsoDate(month)
+  const [fullYear, setFullYear] = useState(false)
+  const trendMonths = fullYear ? 12 : 6
 
   const {
     data: comparison,
     isLoading: isComparisonLoading,
+    isFetching: isComparisonFetching,
     isError: isComparisonError,
   } = useQuery({
     queryKey: ['analytics-comparison', isoMonth],
     queryFn: () => analyticsApi.getMonthlyComparison(isoMonth),
+    placeholderData: keepPreviousData,
   })
   const {
     data: trend,
     isLoading: isTrendLoading,
+    isFetching: isTrendFetching,
     isError: isTrendError,
   } = useQuery({
-    queryKey: ['analytics-trend', isoMonth],
-    queryFn: () => analyticsApi.getMonthlyTrend(isoMonth, 6),
+    queryKey: ['analytics-trend', isoMonth, trendMonths],
+    queryFn: () => analyticsApi.getMonthlyTrend(isoMonth, trendMonths),
+    placeholderData: keepPreviousData,
   })
 
   const chartData = (trend?.points ?? []).map((point) => ({
@@ -155,7 +159,7 @@ export function HistoryPage() {
   }))
 
   return (
-    <main className="mx-auto flex min-h-svh max-w-3xl flex-col gap-6 p-4 py-10">
+    <main className="mx-auto flex min-h-svh w-full max-w-[2200px] flex-col gap-6 p-4 py-10 xl:p-10">
       <PageHeader title="Histórico mensal" />
 
       <div className="flex items-center gap-2">
@@ -178,6 +182,9 @@ export function HistoryPage() {
             Mês atual
           </Button>
         )}
+        <Button variant="ghost" size="sm" onClick={() => setFullYear((v) => !v)}>
+          {fullYear ? 'Ver últimos 6 meses' : 'Ver ano completo'}
+        </Button>
       </div>
 
       {isComparisonLoading && (
@@ -186,11 +193,19 @@ export function HistoryPage() {
       {isComparisonError && (
         <p className="text-sm text-red-600">Não foi possível carregar a comparação mensal.</p>
       )}
-      {comparison && <ComparisonCard comparison={comparison} currency={currency} />}
+      {comparison && (
+        <div
+          className={`transition-opacity duration-300 ${isComparisonFetching ? 'opacity-60' : 'opacity-100'}`}
+        >
+          <ComparisonCard comparison={comparison} currency={currency} />
+        </div>
+      )}
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Evolução dos últimos 6 meses</CardTitle>
+          <CardTitle className="text-base">
+            {fullYear ? 'Evolução no último ano' : 'Evolução dos últimos 6 meses'}
+          </CardTitle>
         </CardHeader>
         <CardContent>
           {isTrendLoading && (
@@ -202,7 +217,9 @@ export function HistoryPage() {
             </p>
           )}
           {trend && (
-          <div className="h-64">
+          <div
+            className={`h-72 transition-opacity duration-300 xl:h-96 ${isTrendFetching ? 'opacity-60' : 'opacity-100'}`}
+          >
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={chartData} margin={{ top: 8, right: 8, bottom: 0, left: 8 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />

@@ -1,4 +1,4 @@
-# FinTrack — Frontend
+# CentiSible — Frontend
 
 React + TypeScript + Vite + Tailwind CSS.
 

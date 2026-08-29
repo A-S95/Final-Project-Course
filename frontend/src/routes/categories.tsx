@@ -111,7 +111,7 @@ function CategoryForm({
 
   return (
     <form className="flex flex-col gap-4" onSubmit={handleSubmit(submit)} noValidate>
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
+      <div className="flex flex-col gap-4">
         <div className="flex flex-1 flex-col gap-1.5">
           <Label htmlFor="name">Nome</Label>
           <Input id="name" autoComplete="off" {...register('name')} />
@@ -128,7 +128,7 @@ function CategoryForm({
           </Select>
         </div>
       </div>
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+      <div className="flex flex-col gap-4">
         <div className="flex flex-1 flex-col gap-1.5">
           <Label>Cor</Label>
           <ColorPicker value={color} onChange={(value) => setValue('color', value)} />
@@ -198,7 +198,7 @@ function CategoryRow({
 
   if (isEditing) {
     return (
-      <div className="border-b border-border p-4 last:border-0">
+      <Card className="p-5">
         <CategoryForm
           defaultValues={{
             name: category.name,
@@ -210,7 +210,7 @@ function CategoryRow({
           onCancel={() => setIsEditing(false)}
           onSubmit={(values) => updateMutation.mutateAsync(values).then(() => undefined)}
         />
-      </div>
+      </Card>
     )
   }
 
@@ -219,11 +219,12 @@ function CategoryRow({
       initial={reduceMotion ? false : { opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, delay: index * 0.04, ease: 'easeOut' }}
-      className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-4 last:border-0"
+      whileHover={reduceMotion ? undefined : { y: -2 }}
+      className={`flex flex-col gap-4 rounded-2xl border border-border bg-surface-raised p-5 transition-shadow hover:shadow-md ${inUse ? 'sm:col-span-2 xl:col-span-3' : ''}`}
     >
       <div className="flex items-center gap-3">
         <span
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-base"
           style={{ backgroundColor: `${category.color ?? '#94a3b8'}26` }}
         >
           {category.icon ?? (
@@ -233,80 +234,84 @@ function CategoryRow({
             />
           )}
         </span>
-        <div>
-          <p className="font-medium text-ink">{category.name}</p>
+        <div className="min-w-0">
+          <p className="truncate font-medium text-ink">{category.name}</p>
           <p className="text-sm text-ink-muted">{CATEGORY_TYPE_LABELS[category.type]}</p>
-          {deleteError && <p className="text-sm text-red-600">{deleteError}</p>}
         </div>
       </div>
-      {inUse ? (
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm text-ink-muted">
-            Em uso. Mover transações para outra categoria e eliminar:
-          </span>
-          <Select
-            value={reassignTo}
-            onChange={(e) => setReassignTo(e.target.value)}
-            className="w-auto"
-          >
-            <option value="">Escolhe uma categoria</option>
-            {otherCategoriesOfSameType.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </Select>
-          <Button
-            variant="destructive"
-            size="sm"
-            disabled={!reassignTo || deleteMutation.isPending}
-            onClick={() => deleteMutation.mutate(reassignTo)}
-          >
-            Mover e eliminar
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setInUse(false)
-              setConfirmingDelete(false)
-            }}
-          >
-            Cancelar
-          </Button>
-        </div>
-      ) : confirmingDelete ? (
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-ink-muted">Eliminar?</span>
-          <Button
-            variant="destructive"
-            size="sm"
-            disabled={deleteMutation.isPending}
-            onClick={() => deleteMutation.mutate(undefined)}
-          >
-            Confirmar
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => setConfirmingDelete(false)}>
-            Cancelar
-          </Button>
-        </div>
-      ) : (
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
-            Editar
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              setDeleteError(null)
-              setConfirmingDelete(true)
-            }}
-          >
-            Eliminar
-          </Button>
-        </div>
-      )}
+
+      {deleteError && <p className="text-sm text-red-600">{deleteError}</p>}
+
+      <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
+        {inUse ? (
+          <>
+            <span className="text-sm text-ink-muted">
+              Em uso. Mover transações para outra categoria e eliminar:
+            </span>
+            <Select
+              value={reassignTo}
+              onChange={(e) => setReassignTo(e.target.value)}
+              className="w-auto"
+            >
+              <option value="">Escolhe uma categoria</option>
+              {otherCategoriesOfSameType.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </Select>
+            <Button
+              variant="destructive"
+              size="sm"
+              disabled={!reassignTo || deleteMutation.isPending}
+              onClick={() => deleteMutation.mutate(reassignTo)}
+            >
+              Mover e eliminar
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setInUse(false)
+                setConfirmingDelete(false)
+              }}
+            >
+              Cancelar
+            </Button>
+          </>
+        ) : confirmingDelete ? (
+          <>
+            <span className="text-sm text-ink-muted">Eliminar?</span>
+            <Button
+              variant="destructive"
+              size="sm"
+              disabled={deleteMutation.isPending}
+              onClick={() => deleteMutation.mutate(undefined)}
+            >
+              Confirmar
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setConfirmingDelete(false)}>
+              Cancelar
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
+              Editar
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setDeleteError(null)
+                setConfirmingDelete(true)
+              }}
+            >
+              Eliminar
+            </Button>
+          </>
+        )}
+      </div>
     </motion.div>
   )
 }
@@ -329,48 +334,57 @@ export function CategoriesPage() {
   })
 
   return (
-    <main className="mx-auto flex min-h-svh max-w-2xl flex-col gap-6 p-4 py-10">
+    <main className="mx-auto flex min-h-svh w-full max-w-[2200px] flex-col gap-6 p-4 py-10 xl:p-10">
       <PageHeader title="Categorias" />
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Nova categoria</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {isCreating ? (
-            <CategoryForm
-              defaultValues={{ name: '', type: 'EXPENSE', icon: null, color: CATEGORY_COLOR_PALETTE[0] }}
-              submitLabel="Criar categoria"
-              onCancel={() => setIsCreating(false)}
-              onSubmit={(values) => createMutation.mutateAsync(values).then(() => undefined)}
-            />
-          ) : (
-            <Button onClick={() => setIsCreating(true)}>Adicionar categoria</Button>
-          )}
-        </CardContent>
-      </Card>
+      <div className="flex flex-col gap-6 lg:flex-row-reverse lg:items-start lg:gap-8">
+        <div className="w-full shrink-0 lg:sticky lg:top-10 lg:w-80">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Nova categoria</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {isCreating ? (
+                <CategoryForm
+                  defaultValues={{
+                    name: '',
+                    type: 'EXPENSE',
+                    icon: null,
+                    color: CATEGORY_COLOR_PALETTE[0],
+                  }}
+                  submitLabel="Criar categoria"
+                  onCancel={() => setIsCreating(false)}
+                  onSubmit={(values) => createMutation.mutateAsync(values).then(() => undefined)}
+                />
+              ) : (
+                <Button onClick={() => setIsCreating(true)}>Adicionar categoria</Button>
+              )}
+            </CardContent>
+          </Card>
+        </div>
 
-      <Card>
-        {isLoading && <p className="p-6 text-sm text-ink-muted">A carregar...</p>}
-        {isError && (
-          <p className="p-6 text-sm text-red-600">Não foi possível carregar as categorias.</p>
-        )}
-        {categories && categories.length === 0 && (
-          <p className="p-6 text-sm text-ink-muted">
-            Ainda não tens nenhuma categoria.
-          </p>
-        )}
-        {categories?.map((category, index) => (
-          <CategoryRow
-            key={category.id}
-            category={category}
-            index={index}
-            otherCategoriesOfSameType={categories.filter(
-              (c) => c.id !== category.id && c.type === category.type,
-            )}
-          />
-        ))}
-      </Card>
+        <div className="min-w-0 flex-1">
+          {isLoading && <p className="text-sm text-ink-muted">A carregar...</p>}
+          {isError && (
+            <p className="text-sm text-red-600">Não foi possível carregar as categorias.</p>
+          )}
+          {categories && categories.length === 0 && (
+            <Card className="p-6 text-sm text-ink-muted">Ainda não tens nenhuma categoria.</Card>
+          )}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+            {categories?.map((category, index) => (
+              <CategoryRow
+                key={category.id}
+                category={category}
+                index={index}
+                otherCategoriesOfSameType={categories.filter(
+                  (c) => c.id !== category.id && c.type === category.type,
+                )}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
     </main>
   )
 }

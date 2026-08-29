@@ -32,12 +32,15 @@ def create_account(
     name: str = "Millennium",
     type: str = "BANK",
     initial_balance: str = "100.00",
+    card_expiration_date: str | None = None,
+    card_plafond: str | None = None,
 ) -> dict:
-    response = client.post(
-        ACCOUNTS_URL,
-        json={"name": name, "type": type, "initial_balance": initial_balance},
-        headers=headers,
-    )
+    payload = {"name": name, "type": type, "initial_balance": initial_balance}
+    if card_expiration_date is not None:
+        payload["card_expiration_date"] = card_expiration_date
+    if card_plafond is not None:
+        payload["card_plafond"] = card_plafond
+    response = client.post(ACCOUNTS_URL, json=payload, headers=headers)
     assert response.status_code == 201
     return response.json()
 

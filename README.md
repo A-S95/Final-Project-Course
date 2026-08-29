@@ -1,4 +1,4 @@
-# FinTrack
+# CentiSible
 
 Plataforma de gestão de finanças pessoais — projeto final de curso, full-stack (Python/FastAPI + React/TypeScript + PostgreSQL).
 

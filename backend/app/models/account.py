@@ -1,9 +1,9 @@
 import enum
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Numeric, String, func
+from sqlalchemy import Date, DateTime, Enum, ForeignKey, Numeric, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -36,6 +36,12 @@ class Account(Base):
     # request do cliente) — hoje só reflete o `initial_balance`, mas é o campo
     # que as transações (Fase 5) vão ajustar a cada movimento.
     current_balance: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0)
+    # Validade física do cartão (débito/crédito) — opcional, gera um alerta em
+    # Insights perto da data. `card_plafond` é o teto de saldo esperado de um
+    # cartão pré-pago (ex: "Universo"); se `current_balance` cair abaixo dele,
+    # também gera um alerta. Ambos nulos para contas que não são cartões.
+    card_expiration_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    card_plafond: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

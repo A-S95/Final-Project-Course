@@ -10,6 +10,11 @@ export function addMonths(date: Date, amount: number): Date {
   return new Date(date.getFullYear(), date.getMonth() + amount, 1)
 }
 
+/** Último dia do mês de `date` (dia 0 do mês seguinte = último dia deste). */
+export function endOfMonth(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth() + 1, 0)
+}
+
 /** "YYYY-MM-DD" em hora local — o formato que a API espera no parâmetro `month`. */
 export function toIsoDate(date: Date): string {
   const year = date.getFullYear()
@@ -41,4 +46,39 @@ export function shortMonthLabel(iso: string): string {
     .format(date)
     .replace('.', '')
   return `${month} ${String(date.getFullYear()).slice(2)}`
+}
+
+/** "2026-09-01" -> "1 set" (dia + mês abreviado, para listas compactas). */
+export function shortDayMonthLabel(iso: string): string {
+  const date = parseIsoDate(iso)
+  const month = new Intl.DateTimeFormat('pt-PT', { month: 'short' }).format(date).replace('.', '')
+  return `${date.getDate()} ${month}`
+}
+
+/** Dias entre hoje e `iso` (negativo se já passou). Só a data conta, sem hora. */
+export function daysUntil(iso: string): number {
+  const today = startOfDay(new Date())
+  const target = startOfDay(parseIsoDate(iso))
+  return Math.round((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+}
+
+/** "2026-08-29" -> "Hoje" / "Ontem" / "25 de agosto" (ano só se não for o
+ * atual) — para agrupar listas por dia, tipo extrato bancário. */
+export function dayGroupLabel(iso: string): string {
+  const diff = daysUntil(iso)
+  if (diff === 0) return 'Hoje'
+  if (diff === -1) return 'Ontem'
+
+  const date = parseIsoDate(iso)
+  const sameYear = date.getFullYear() === new Date().getFullYear()
+  const label = new Intl.DateTimeFormat('pt-PT', {
+    day: 'numeric',
+    month: 'long',
+    year: sameYear ? undefined : 'numeric',
+  }).format(date)
+  return label
+}
+
+function startOfDay(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate())
 }

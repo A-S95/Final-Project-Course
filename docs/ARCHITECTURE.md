@@ -1,10 +1,10 @@
-# FinTrack — Arquitetura, Requisitos, Modelo de Dados e Roadmap
+# CentiSible — Arquitetura, Requisitos, Modelo de Dados e Roadmap
 
 > Documento vivo. Atualizar conforme o projeto evolui e decisões mudam.
 
 ## 1. Visão geral da arquitetura
 
-FinTrack é um **monólito modular**: um único backend FastAPI organizado em camadas claras, e um frontend React SPA separado que consome a API via REST/JSON. Sem microservices, sem message broker — a complexidade do domínio (dinheiro, orçamentos, recorrências) já é suficiente para aprender arquitetura sem precisar de distribuição.
+CentiSible é um **monólito modular**: um único backend FastAPI organizado em camadas claras, e um frontend React SPA separado que consome a API via REST/JSON. Sem microservices, sem message broker — a complexidade do domínio (dinheiro, orçamentos, recorrências) já é suficiente para aprender arquitetura sem precisar de distribuição.
 
 ```
 ┌─────────────────┐        HTTPS/JSON        ┌──────────────────────┐

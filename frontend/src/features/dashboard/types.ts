@@ -6,6 +6,11 @@ export type CategoryExpense = {
   color: string | null
   // Decimal do backend chega sempre como string — ver features/auth/types.ts.
   total: string
+  // Só na vista de agregado: de quem é esta despesa pessoal, quando há mais
+  // que um membro com uma categoria do mesmo nome (ex: "Alimentação" da
+  // Antonio vs. da Beatriz). `null` para despesas partilhadas (já fundidas
+  // entre todos os membros que as marcaram) e sempre na vista individual.
+  owner_name: string | null
 }
 
 export type DashboardSummary = {

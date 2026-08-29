@@ -11,14 +11,14 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
       rel="stylesheet"
     />
-    <title>FinTrack</title>
+    <title>CentiSible</title>
     <script>
       // Aplica o tema guardado antes do primeiro paint — sem isto, a página
       // pintava sempre com o tema do sistema por uma fração de segundo e só
       // depois "saltava" para a escolha manual do utilizador (guardada em
       // localStorage), assim que o React montava o ThemeProvider.
       try {
-        var storedTheme = localStorage.getItem('fintrack-theme')
+        var storedTheme = localStorage.getItem('centisible-theme')
         if (storedTheme === 'light' || storedTheme === 'dark') {
           document.documentElement.setAttribute('data-theme', storedTheme)
         }

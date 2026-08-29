@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { ApiError } from '@/api/client'
+import { LogoMark } from '@/components/logo'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -51,10 +52,15 @@ export function RegisterPage() {
           to="/"
           className="font-display mb-6 flex items-center justify-center gap-2 text-lg font-semibold text-ink"
         >
-          <span className="brand-gradient flex h-7 w-7 items-center justify-center rounded-lg text-sm font-bold text-white">
-            F
-          </span>
-          FinTrack
+          <motion.span
+            style={{ perspective: 300 }}
+            initial={reduceMotion ? false : { rotateY: -110, opacity: 0 }}
+            animate={{ rotateY: 0, opacity: 1 }}
+            transition={{ duration: 0.7, ease: [0.34, 1.56, 0.64, 1] }}
+          >
+            <LogoMark className="h-7 w-7" />
+          </motion.span>
+          CentiSible
         </Link>
         <Card>
           <CardHeader>

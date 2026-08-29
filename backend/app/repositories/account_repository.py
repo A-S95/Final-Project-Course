@@ -1,4 +1,5 @@
 import uuid
+from datetime import date
 from decimal import Decimal
 
 from sqlalchemy import select
@@ -20,7 +21,14 @@ def get_by_id_for_user(db: Session, account_id: uuid.UUID, user_id: uuid.UUID) -
 
 
 def create(
-    db: Session, *, user_id: uuid.UUID, name: str, type: AccountType, initial_balance: Decimal
+    db: Session,
+    *,
+    user_id: uuid.UUID,
+    name: str,
+    type: AccountType,
+    initial_balance: Decimal,
+    card_expiration_date: date | None = None,
+    card_plafond: Decimal | None = None,
 ) -> Account:
     account = Account(
         user_id=user_id,
@@ -28,6 +36,8 @@ def create(
         type=type,
         initial_balance=initial_balance,
         current_balance=initial_balance,
+        card_expiration_date=card_expiration_date,
+        card_plafond=card_plafond,
     )
     db.add(account)
     db.flush()

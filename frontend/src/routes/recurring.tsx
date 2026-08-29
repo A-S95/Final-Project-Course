@@ -88,7 +88,7 @@ function RecurringForm({
 
   return (
     <form className="flex flex-col gap-4" onSubmit={handleSubmit(submit)} noValidate>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="description">Descrição</Label>
           <Input id="description" autoComplete="off" {...register('description')} />
@@ -205,7 +205,7 @@ function RecurringRow({
 
   if (isEditing) {
     return (
-      <div className="border-b border-border p-4 last:border-0">
+      <Card className="p-5">
         <RecurringForm
           accounts={accounts}
           categories={categories}
@@ -214,7 +214,7 @@ function RecurringRow({
           onCancel={() => setIsEditing(false)}
           onSubmit={(values) => updateMutation.mutateAsync(values).then(() => undefined)}
         />
-      </div>
+      </Card>
     )
   }
 
@@ -223,7 +223,8 @@ function RecurringRow({
       initial={reduceMotion ? false : { opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, delay: index * 0.04, ease: 'easeOut' }}
-      className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-4 last:border-0"
+      whileHover={reduceMotion ? undefined : { y: -2 }}
+      className="flex flex-col gap-3 rounded-2xl border border-border bg-surface-raised p-5 transition-shadow hover:shadow-md"
     >
       <div>
         <p className="font-medium text-ink">
@@ -244,12 +245,14 @@ function RecurringRow({
           {recurring.next_occurrence} · {recurring.account_name} · {recurring.category_name}
         </p>
       </div>
-      <div className="flex items-center gap-4">
-        <span className="text-lg font-semibold tabular-nums text-red-500">
-          {formatMoney(recurring.amount, currency)}
-        </span>
+
+      <span className="text-2xl font-semibold tabular-nums text-red-500">
+        {formatMoney(recurring.amount, currency)}
+      </span>
+
+      <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
         {confirmingDelete ? (
-          <div className="flex items-center gap-2">
+          <>
             <span className="text-sm text-ink-muted">Eliminar?</span>
             <Button
               variant="destructive"
@@ -262,9 +265,9 @@ function RecurringRow({
             <Button variant="outline" size="sm" onClick={() => setConfirmingDelete(false)}>
               Cancelar
             </Button>
-          </div>
+          </>
         ) : (
-          <div className="flex items-center gap-2">
+          <>
             <Button
               variant="outline"
               size="sm"
@@ -279,7 +282,7 @@ function RecurringRow({
             <Button variant="ghost" size="sm" onClick={() => setConfirmingDelete(true)}>
               Eliminar
             </Button>
-          </div>
+          </>
         )}
       </div>
     </motion.div>
@@ -332,7 +335,7 @@ export function RecurringPage() {
   })
 
   return (
-    <main className="mx-auto flex min-h-svh max-w-3xl flex-col gap-6 p-4 py-10">
+    <main className="mx-auto flex min-h-svh w-full max-w-[2200px] flex-col gap-6 p-4 py-10 xl:p-10">
       <PageHeader title="Despesas recorrentes" />
 
       <Card>
@@ -360,53 +363,57 @@ export function RecurringPage() {
         )}
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Nova despesa recorrente</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {!canCreate ? (
-            <p className="text-sm text-ink-muted">
-              Precisas de pelo menos uma conta e uma categoria de despesa.
-            </p>
-          ) : isCreating ? (
-            <RecurringForm
-              accounts={accountsList}
-              categories={expenseCategories}
-              defaultValues={EMPTY_VALUES}
-              submitLabel="Criar"
-              onCancel={() => setIsCreating(false)}
-              onSubmit={(values) => createMutation.mutateAsync(values).then(() => undefined)}
-            />
-          ) : (
-            <Button onClick={() => setIsCreating(true)}>Adicionar recorrência</Button>
-          )}
-        </CardContent>
-      </Card>
+      <div className="flex flex-col gap-6 lg:flex-row-reverse lg:items-start lg:gap-8">
+        <div className="w-full shrink-0 lg:sticky lg:top-10 lg:w-80">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Nova despesa recorrente</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {!canCreate ? (
+                <p className="text-sm text-ink-muted">
+                  Precisas de pelo menos uma conta e uma categoria de despesa.
+                </p>
+              ) : isCreating ? (
+                <RecurringForm
+                  accounts={accountsList}
+                  categories={expenseCategories}
+                  defaultValues={EMPTY_VALUES}
+                  submitLabel="Criar"
+                  onCancel={() => setIsCreating(false)}
+                  onSubmit={(values) => createMutation.mutateAsync(values).then(() => undefined)}
+                />
+              ) : (
+                <Button onClick={() => setIsCreating(true)}>Adicionar recorrência</Button>
+              )}
+            </CardContent>
+          </Card>
+        </div>
 
-      <Card>
-        {isLoading && (
-          <p className="p-6 text-sm text-ink-muted">A carregar...</p>
-        )}
-        {isError && (
-          <p className="p-6 text-sm text-red-600">Não foi possível carregar as recorrências.</p>
-        )}
-        {recurring && recurring.length === 0 && (
-          <p className="p-6 text-sm text-ink-muted">
-            Ainda não tens despesas recorrentes.
-          </p>
-        )}
-        {recurring?.map((item, index) => (
-          <RecurringRow
-            key={item.id}
-            recurring={item}
-            accounts={accountsList}
-            categories={expenseCategories}
-            currency={currency}
-            index={index}
-          />
-        ))}
-      </Card>
+        <div className="min-w-0 flex-1">
+          {isLoading && <p className="text-sm text-ink-muted">A carregar...</p>}
+          {isError && (
+            <p className="text-sm text-red-600">Não foi possível carregar as recorrências.</p>
+          )}
+          {recurring && recurring.length === 0 && (
+            <Card className="p-6 text-sm text-ink-muted">
+              Ainda não tens despesas recorrentes.
+            </Card>
+          )}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+            {recurring?.map((item, index) => (
+              <RecurringRow
+                key={item.id}
+                recurring={item}
+                accounts={accountsList}
+                categories={expenseCategories}
+                currency={currency}
+                index={index}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
     </main>
   )
 }

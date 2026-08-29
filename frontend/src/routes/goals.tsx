@@ -4,6 +4,7 @@ import { motion, useReducedMotion } from 'motion/react'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { ApiError } from '@/api/client'
+import { AnimatedNumber } from '@/components/animated-number'
 import { PageHeader } from '@/components/page-header'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -78,7 +79,7 @@ function GoalForm({
 
   return (
     <form className="flex flex-col gap-4" onSubmit={handleSubmit(submit)} noValidate>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="name">Nome</Label>
           <Input id="name" autoComplete="off" {...register('name')} />
@@ -218,14 +219,14 @@ function GoalRow({ goal, currency, index }: { goal: Goal; currency: string; inde
 
   if (isEditing) {
     return (
-      <div className="border-b border-border p-4 last:border-0">
+      <Card className="p-5">
         <GoalForm
           defaultValues={toFormValues(goal)}
           submitLabel="Guardar"
           onCancel={() => setIsEditing(false)}
           onSubmit={(values) => updateMutation.mutateAsync(values).then(() => undefined)}
         />
-      </div>
+      </Card>
     )
   }
 
@@ -234,13 +235,18 @@ function GoalRow({ goal, currency, index }: { goal: Goal; currency: string; inde
       initial={reduceMotion ? false : { opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, delay: index * 0.05, ease: 'easeOut' }}
-      className="flex flex-col gap-2 border-b border-border p-4 last:border-0"
+      whileHover={reduceMotion ? undefined : { y: -2 }}
+      className="flex flex-col gap-3 rounded-2xl border border-border bg-surface-raised p-5 transition-shadow hover:shadow-md"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="font-medium text-ink">{goal.name}</span>
         <span className="text-sm tabular-nums text-ink-muted">
-          {formatMoney(goal.current_amount, currency)} de {formatMoney(goal.target_amount, currency)}{' '}
-          · {Math.round(goal.progress_percentage)}%
+          <AnimatedNumber
+            value={Number(goal.current_amount)}
+            formatter={(v) => formatMoney(v, currency)}
+          />{' '}
+          de {formatMoney(goal.target_amount, currency)} ·{' '}
+          <AnimatedNumber value={goal.progress_percentage} formatter={(v) => `${Math.round(v)}%`} />
         </span>
       </div>
 
@@ -250,8 +256,12 @@ function GoalRow({ goal, currency, index }: { goal: Goal; currency: string; inde
         <div className="flex flex-col gap-0.5">
           <GoalDeadlineNote goal={goal} currency={currency} />
           {!goal.is_achieved && (
-            <span className="text-xs text-ink-subtle">
-              Faltam {formatMoney(goal.remaining, currency)}
+            <span className="text-xs tabular-nums text-ink-subtle">
+              Faltam{' '}
+              <AnimatedNumber
+                value={Number(goal.remaining)}
+                formatter={(v) => formatMoney(v, currency)}
+              />
             </span>
           )}
         </div>
@@ -308,43 +318,45 @@ export function GoalsPage() {
   })
 
   return (
-    <main className="mx-auto flex min-h-svh max-w-2xl flex-col gap-6 p-4 py-10">
+    <main className="mx-auto flex min-h-svh w-full max-w-[2200px] flex-col gap-6 p-4 py-10 xl:p-10">
       <PageHeader title="Objetivos" />
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Novo objetivo</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {isCreating ? (
-            <GoalForm
-              defaultValues={EMPTY_VALUES}
-              submitLabel="Criar objetivo"
-              onCancel={() => setIsCreating(false)}
-              onSubmit={(values) => createMutation.mutateAsync(values).then(() => undefined)}
-            />
-          ) : (
-            <Button onClick={() => setIsCreating(true)}>Adicionar objetivo</Button>
-          )}
-        </CardContent>
-      </Card>
+      <div className="flex flex-col gap-6 lg:flex-row-reverse lg:items-start lg:gap-8">
+        <div className="w-full shrink-0 lg:sticky lg:top-10 lg:w-80">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Novo objetivo</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {isCreating ? (
+                <GoalForm
+                  defaultValues={EMPTY_VALUES}
+                  submitLabel="Criar objetivo"
+                  onCancel={() => setIsCreating(false)}
+                  onSubmit={(values) => createMutation.mutateAsync(values).then(() => undefined)}
+                />
+              ) : (
+                <Button onClick={() => setIsCreating(true)}>Adicionar objetivo</Button>
+              )}
+            </CardContent>
+          </Card>
+        </div>
 
-      <Card>
-        {isLoading && (
-          <p className="p-6 text-sm text-ink-muted">A carregar...</p>
-        )}
-        {isError && (
-          <p className="p-6 text-sm text-red-600">Não foi possível carregar os objetivos.</p>
-        )}
-        {goals && goals.length === 0 && (
-          <p className="p-6 text-sm text-ink-muted">
-            Ainda não tens objetivos.
-          </p>
-        )}
-        {goals?.map((goal, index) => (
-          <GoalRow key={goal.id} goal={goal} currency={currency} index={index} />
-        ))}
-      </Card>
+        <div className="min-w-0 flex-1">
+          {isLoading && <p className="text-sm text-ink-muted">A carregar...</p>}
+          {isError && (
+            <p className="text-sm text-red-600">Não foi possível carregar os objetivos.</p>
+          )}
+          {goals && goals.length === 0 && (
+            <Card className="p-6 text-sm text-ink-muted">Ainda não tens objetivos.</Card>
+          )}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+            {goals?.map((goal, index) => (
+              <GoalRow key={goal.id} goal={goal} currency={currency} index={index} />
+            ))}
+          </div>
+        </div>
+      </div>
     </main>
   )
 }

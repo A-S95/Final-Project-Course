@@ -11,12 +11,42 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import * as accountsApi from '@/features/accounts/api'
+import { CardStatus } from '@/features/accounts/card-status'
+import { ACCOUNT_TYPE_ICONS } from '@/features/accounts/icons'
 import { accountSchema, type AccountFormValues } from '@/features/accounts/schemas'
-import { ACCOUNT_TYPE_LABELS, ACCOUNT_TYPES, type Account } from '@/features/accounts/types'
+import {
+  ACCOUNT_TYPE_LABELS,
+  ACCOUNT_TYPES,
+  type Account,
+  type AccountInput,
+  type AccountType,
+} from '@/features/accounts/types'
 import { useAuth } from '@/features/auth/use-auth'
 
 function formatMoney(value: string, currency: string) {
   return new Intl.NumberFormat('pt-PT', { style: 'currency', currency }).format(Number(value))
+}
+
+// O form usa '' para "não definido" (inputs HTML não têm um estado null
+// nativo); a API usa null — só aqui na fronteira se faz a conversão.
+function toAccountInput(values: AccountFormValues): AccountInput {
+  return {
+    name: values.name,
+    type: values.type,
+    initial_balance: values.initial_balance,
+    card_expiration_date: values.card_expiration_date === '' ? null : values.card_expiration_date,
+    card_plafond: values.card_plafond === '' ? null : values.card_plafond,
+  }
+}
+
+// Campos de cartão só fazem sentido para tipos que representam um cartão
+// físico. Plafond é específico de pré-pagos (cartão de crédito neste
+// modelo) — uma conta bancária normal só tem a validade do cartão associado.
+function showsExpirationField(type: AccountType) {
+  return type === 'BANK' || type === 'CREDIT_CARD'
+}
+function showsPlafondField(type: AccountType) {
+  return type === 'CREDIT_CARD'
 }
 
 function AccountForm({
@@ -34,8 +64,10 @@ function AccountForm({
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<AccountFormValues>({ resolver: zodResolver(accountSchema), defaultValues })
+  const type = watch('type')
 
   const submit = async (values: AccountFormValues) => {
     setFormError(null)
@@ -48,7 +80,7 @@ function AccountForm({
 
   return (
     <form className="flex flex-col gap-4" onSubmit={handleSubmit(submit)} noValidate>
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
+      <div className="flex flex-col gap-4">
         <div className="flex flex-1 flex-col gap-1.5">
           <Label htmlFor="name">Nome</Label>
           <Input id="name" autoComplete="off" {...register('name')} />
@@ -71,16 +103,39 @@ function AccountForm({
             <p className="text-sm text-red-600">{errors.initial_balance.message}</p>
           )}
         </div>
-        <div className="flex gap-2">
-          <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? 'A guardar...' : submitLabel}
+        {showsExpirationField(type) && (
+          <div className="flex flex-1 flex-col gap-1.5">
+            <Label htmlFor="card_expiration_date">Validade do cartão (opcional)</Label>
+            <Input
+              id="card_expiration_date"
+              type="date"
+              {...register('card_expiration_date')}
+            />
+          </div>
+        )}
+        {showsPlafondField(type) && (
+          <div className="flex flex-1 flex-col gap-1.5">
+            <Label htmlFor="card_plafond">Plafond mensal (opcional)</Label>
+            <Input id="card_plafond" inputMode="decimal" {...register('card_plafond')} />
+            <p className="text-xs text-ink-muted">
+              Valor que este cartão deve ter todos os meses (ex: pré-pago). Recebes um aviso se o
+              saldo ficar abaixo.
+            </p>
+            {errors.card_plafond && (
+              <p className="text-sm text-red-600">{errors.card_plafond.message}</p>
+            )}
+          </div>
+        )}
+      </div>
+      <div className="flex gap-2">
+        <Button type="submit" disabled={isSubmitting}>
+          {isSubmitting ? 'A guardar...' : submitLabel}
+        </Button>
+        {onCancel && (
+          <Button type="button" variant="outline" onClick={onCancel}>
+            Cancelar
           </Button>
-          {onCancel && (
-            <Button type="button" variant="outline" onClick={onCancel}>
-              Cancelar
-            </Button>
-          )}
-        </div>
+        )}
       </div>
       {formError && <p className="text-sm text-red-600">{formError}</p>}
     </form>
@@ -103,7 +158,8 @@ function AccountRow({
   const [deleteError, setDeleteError] = useState<string | null>(null)
 
   const updateMutation = useMutation({
-    mutationFn: (values: AccountFormValues) => accountsApi.updateAccount(account.id, values),
+    mutationFn: (values: AccountFormValues) =>
+      accountsApi.updateAccount(account.id, toAccountInput(values)),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['accounts'] })
       setIsEditing(false)
@@ -121,41 +177,54 @@ function AccountRow({
 
   if (isEditing) {
     return (
-      <div className="border-b border-border p-4 last:border-0">
+      <Card className="p-5">
         <AccountForm
           defaultValues={{
             name: account.name,
             type: account.type,
             initial_balance: account.initial_balance,
+            card_expiration_date: account.card_expiration_date ?? '',
+            card_plafond: account.card_plafond ?? '',
           }}
           submitLabel="Guardar"
           onCancel={() => setIsEditing(false)}
           onSubmit={(values) => updateMutation.mutateAsync(values).then(() => undefined)}
         />
-      </div>
+      </Card>
     )
   }
+
+  const Icon = ACCOUNT_TYPE_ICONS[account.type]
 
   return (
     <motion.div
       initial={reduceMotion ? false : { opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, delay: index * 0.04, ease: 'easeOut' }}
-      className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-4 last:border-0"
+      whileHover={reduceMotion ? undefined : { y: -2 }}
+      className="flex flex-col gap-4 rounded-2xl border border-border bg-surface-raised p-5 transition-shadow hover:shadow-md"
     >
-      <div>
-        <p className="font-medium text-ink">{account.name}</p>
-        <p className="text-sm text-ink-muted">
-          {ACCOUNT_TYPE_LABELS[account.type]}
-        </p>
-        {deleteError && <p className="text-sm text-red-600">{deleteError}</p>}
+      <div className="flex items-center gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent-strong dark:text-accent">
+          <Icon className="h-5 w-5" />
+        </span>
+        <div className="min-w-0">
+          <p className="truncate font-medium text-ink">{account.name}</p>
+          <p className="text-sm text-ink-muted">{ACCOUNT_TYPE_LABELS[account.type]}</p>
+        </div>
       </div>
-      <div className="flex items-center gap-4">
-        <p className="text-lg font-semibold tabular-nums text-ink">
-          {formatMoney(account.current_balance, currency)}
-        </p>
+
+      <p className="text-2xl font-semibold tabular-nums text-ink">
+        {formatMoney(account.current_balance, currency)}
+      </p>
+
+      <CardStatus account={account} currency={currency} formatMoney={formatMoney} />
+
+      {deleteError && <p className="text-sm text-red-600">{deleteError}</p>}
+
+      <div className="flex items-center gap-2 border-t border-border pt-3">
         {confirmingDelete ? (
-          <div className="flex items-center gap-2">
+          <>
             <span className="text-sm text-ink-muted">Eliminar?</span>
             <Button
               variant="destructive"
@@ -168,9 +237,9 @@ function AccountRow({
             <Button variant="outline" size="sm" onClick={() => setConfirmingDelete(false)}>
               Cancelar
             </Button>
-          </div>
+          </>
         ) : (
-          <div className="flex items-center gap-2">
+          <>
             <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
               Editar
             </Button>
@@ -184,7 +253,7 @@ function AccountRow({
             >
               Eliminar
             </Button>
-          </div>
+          </>
         )}
       </div>
     </motion.div>
@@ -203,7 +272,7 @@ export function AccountsPage() {
   })
 
   const createMutation = useMutation({
-    mutationFn: accountsApi.createAccount,
+    mutationFn: (values: AccountFormValues) => accountsApi.createAccount(toAccountInput(values)),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['accounts'] })
       setIsCreating(false)
@@ -211,41 +280,51 @@ export function AccountsPage() {
   })
 
   return (
-    <main className="mx-auto flex min-h-svh max-w-2xl flex-col gap-6 p-4 py-10">
+    <main className="mx-auto flex min-h-svh w-full max-w-[2200px] flex-col gap-6 p-4 py-10 xl:p-10">
       <PageHeader title="Contas" />
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Nova conta</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {isCreating ? (
-            <AccountForm
-              defaultValues={{ name: '', type: 'BANK', initial_balance: '0' }}
-              submitLabel="Criar conta"
-              onCancel={() => setIsCreating(false)}
-              onSubmit={(values) => createMutation.mutateAsync(values).then(() => undefined)}
-            />
-          ) : (
-            <Button onClick={() => setIsCreating(true)}>Adicionar conta</Button>
-          )}
-        </CardContent>
-      </Card>
+      <div className="flex flex-col gap-6 lg:flex-row-reverse lg:items-start lg:gap-8">
+        <div className="w-full shrink-0 lg:sticky lg:top-10 lg:w-80">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Nova conta</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {isCreating ? (
+                <AccountForm
+                  defaultValues={{
+                    name: '',
+                    type: 'BANK',
+                    initial_balance: '0',
+                    card_expiration_date: '',
+                    card_plafond: '',
+                  }}
+                  submitLabel="Criar conta"
+                  onCancel={() => setIsCreating(false)}
+                  onSubmit={(values) => createMutation.mutateAsync(values).then(() => undefined)}
+                />
+              ) : (
+                <Button onClick={() => setIsCreating(true)}>Adicionar conta</Button>
+              )}
+            </CardContent>
+          </Card>
+        </div>
 
-      <Card>
-        {isLoading && <p className="p-6 text-sm text-ink-muted">A carregar...</p>}
-        {isError && (
-          <p className="p-6 text-sm text-red-600">Não foi possível carregar as contas.</p>
-        )}
-        {accounts && accounts.length === 0 && (
-          <p className="p-6 text-sm text-ink-muted">
-            Ainda não tens nenhuma conta.
-          </p>
-        )}
-        {accounts?.map((account, index) => (
-          <AccountRow key={account.id} account={account} currency={currency} index={index} />
-        ))}
-      </Card>
+        <div className="min-w-0 flex-1">
+          {isLoading && <p className="text-sm text-ink-muted">A carregar...</p>}
+          {isError && (
+            <p className="text-sm text-red-600">Não foi possível carregar as contas.</p>
+          )}
+          {accounts && accounts.length === 0 && (
+            <Card className="p-6 text-sm text-ink-muted">Ainda não tens nenhuma conta.</Card>
+          )}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+            {accounts?.map((account, index) => (
+              <AccountRow key={account.id} account={account} currency={currency} index={index} />
+            ))}
+          </div>
+        </div>
+      </div>
     </main>
   )
 }

@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.schemas.dashboard import DashboardScope
 from app.schemas.insight import Insight, InsightSeverity
 from app.services import (
+    account_service,
     analytics_service,
     budget_service,
     dashboard_service,
@@ -19,6 +20,10 @@ _SEVERITY_ORDER = {
     InsightSeverity.INFO: 1,
     InsightSeverity.POSITIVE: 2,
 }
+
+# Janela de aviso antes da validade de um cartão — nem tão cedo que o
+# alerta perca urgência, nem tão tarde que não dê tempo de reagir.
+_CARD_EXPIRATION_WARNING_DAYS = 30
 
 
 def _eur(value: Decimal) -> str:
@@ -58,6 +63,9 @@ def get_insights(
     comparison = analytics_service.get_comparison(db, user_id=user_id, month=month_start)
     budgets = budget_service.list_budgets(db, user_id=user_id, period_month=month_start)
     goals = goal_service.list_goals(db, user_id=user_id) if is_current_month else []
+    # Saldo/validade são estado "agora", não do mês em navegação — só fazem
+    # sentido ao ver o mês atual (mesmo critério usado para os objetivos).
+    accounts = account_service.list_accounts(db, user_id=user_id) if is_current_month else []
 
     insights: list[Insight] = []
 
@@ -169,6 +177,49 @@ def get_insights(
                     detail=(
                         f"Precisas de {_eur(goal.required_monthly_contribution)}/mês e este "
                         f"mês poupaste {_eur(summary.net)}."
+                    ),
+                )
+            )
+
+    # --- cartões: validade e plafond (só na vista do mês atual) ---
+    for account in accounts:
+        if account.card_expiration_date is not None:
+            days_left = (account.card_expiration_date - today).days
+            if days_left < 0:
+                insights.append(
+                    Insight(
+                        rule="card_expired",
+                        severity=InsightSeverity.WARNING,
+                        title=f"O cartão {account.name} já expirou",
+                        detail=(
+                            f"Validade terminou a {account.card_expiration_date:%d/%m/%Y} — "
+                            "renova para continuar a usá-lo."
+                        ),
+                    )
+                )
+            elif days_left <= _CARD_EXPIRATION_WARNING_DAYS:
+                insights.append(
+                    Insight(
+                        rule="card_expiring_soon",
+                        severity=InsightSeverity.WARNING,
+                        title=f"O cartão {account.name} expira em breve",
+                        detail=(
+                            f"Válido até {account.card_expiration_date:%d/%m/%Y} "
+                            f"({days_left} dia{'s' if days_left != 1 else ''})."
+                        ),
+                    )
+                )
+
+        if account.card_plafond is not None and account.current_balance < account.card_plafond:
+            missing = account.card_plafond - account.current_balance
+            insights.append(
+                Insight(
+                    rule="card_below_plafond",
+                    severity=InsightSeverity.WARNING,
+                    title=f"O cartão {account.name} está abaixo do plafond",
+                    detail=(
+                        f"Tem {_eur(account.current_balance)} de {_eur(account.card_plafond)} "
+                        f"definidos — falta recarregar {_eur(missing)}."
                     ),
                 )
             )

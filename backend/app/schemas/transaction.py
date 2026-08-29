@@ -51,5 +51,8 @@ class TransactionRead(BaseModel):
     description: str | None
     date: date
     is_shared: bool
+    # `None` = sem recibo anexado; caso contrário, o Content-Type a esperar de
+    # GET /transactions/{id}/receipt (a imagem/PDF em si não vai aqui).
+    receipt_content_type: str | None
     created_at: datetime
     updated_at: datetime

@@ -5,7 +5,8 @@ test('regista uma conta nova e chega ao dashboard', async ({ page }) => {
   const { name } = await registerUser(page, { name: 'Ana Registo' })
 
   await expect(page).toHaveURL('/dashboard')
-  await expect(page.getByText(`Olá, ${name}`)).toBeVisible()
+  // O painel cumprimenta só pelo primeiro nome (ver routes/dashboard.tsx).
+  await expect(page.getByText(`Olá, ${name.split(' ')[0]}`)).toBeVisible()
 })
 
 test('permite iniciar sessão com uma conta existente', async ({ page }) => {
@@ -21,5 +22,5 @@ test('permite iniciar sessão com uma conta existente', async ({ page }) => {
   await page.getByRole('button', { name: 'Entrar' }).click()
 
   await expect(page).toHaveURL('/dashboard')
-  await expect(page.getByText('Olá, Bruno Login')).toBeVisible()
+  await expect(page.getByText('Olá, Bruno')).toBeVisible()
 })

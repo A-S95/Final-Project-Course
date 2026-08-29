@@ -1,7 +1,7 @@
 [project]
 name = "fintrack-backend"
 version = "0.1.0"
-description = "FinTrack API — backend"
+description = "CentiSible API — backend"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115",
@@ -14,6 +14,7 @@ dependencies = [
     "pyjwt>=2.9",
     "email-validator>=2.2",
     "slowapi>=0.1.10",
+    "python-multipart>=0.0.20",
 ]
 
 [dependency-groups]
@@ -35,7 +36,13 @@ select = ["E", "F", "I", "UP", "B"]
 [tool.ruff.lint.flake8-bugbear]
 # FastAPI usa `Depends(...)` como valor por omissão de propósito — é o
 # mecanismo de injeção de dependências do framework, não um bug.
-extend-immutable-calls = ["fastapi.Depends", "fastapi.Cookie", "fastapi.Query", "fastapi.Header"]
+extend-immutable-calls = [
+    "fastapi.Depends",
+    "fastapi.Cookie",
+    "fastapi.Query",
+    "fastapi.Header",
+    "fastapi.File",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

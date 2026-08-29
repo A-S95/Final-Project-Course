@@ -103,3 +103,15 @@ class InvalidTransactionError(Exception):
     def __init__(self, message: str) -> None:
         super().__init__(message)
         self.message = message
+
+
+class ReceiptNotFoundError(Exception):
+    """A transação existe mas não tem nenhum recibo anexado."""
+
+
+class InvalidReceiptError(Exception):
+    """Ficheiro de recibo inválido (tipo não suportado ou demasiado grande)."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
+        self.message = message

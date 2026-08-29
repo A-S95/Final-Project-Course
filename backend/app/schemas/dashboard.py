@@ -12,12 +12,21 @@ class DashboardScope(enum.StrEnum):
 
 
 class CategoryExpense(BaseModel):
-    """Total gasto numa categoria de despesa dentro do mês selecionado."""
+    """Total gasto numa categoria de despesa dentro do mês selecionado.
+
+    Na vista de agregado, uma linha representa ou uma despesa partilhada
+    (fundida entre todos os membros que a marcaram — `owner_name` é `None`,
+    porque já não pertence a uma pessoa só) ou a despesa pessoal de um único
+    membro (`owner_name` identifica de quem é, para não confundir com a
+    despesa homónima de outro membro). Na vista individual `owner_name` é
+    sempre `None` — só há uma pessoa, não há nada a desambiguar.
+    """
 
     category_id: uuid.UUID
     name: str
     color: str | None
     total: Decimal
+    owner_name: str | None = None
 
 
 class DashboardSummary(BaseModel):

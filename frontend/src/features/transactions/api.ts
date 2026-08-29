@@ -23,3 +23,15 @@ export function updateTransaction(id: string, payload: TransactionInput) {
 export function deleteTransaction(id: string) {
   return apiClient.delete<void>(`${BASE_URL}/${id}`)
 }
+
+export function uploadReceipt(id: string, file: File) {
+  return apiClient.uploadFile<Transaction>(`${BASE_URL}/${id}/receipt`, file)
+}
+
+export async function getReceiptBlob(id: string) {
+  return apiClient.fetchBlob(`${BASE_URL}/${id}/receipt`)
+}
+
+export function deleteReceipt(id: string) {
+  return apiClient.delete<Transaction>(`${BASE_URL}/${id}/receipt`)
+}

@@ -70,6 +70,11 @@ class Transaction(Base):
     # de agregado usa isto para não a tratar como "gasto pessoal" de mais
     # ninguém. Sem significado fora de um agregado (fica só a False).
     is_shared: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # Um recibo por transação, guardado em disco (`settings.uploads_dir`) com o
+    # próprio id da transação como nome de ficheiro — só o content-type fica
+    # na BD, para servir o `Content-Type` certo sem depender da extensão.
+    # `None` = sem recibo anexado.
+    receipt_content_type: Mapped[str | None] = mapped_column(String, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

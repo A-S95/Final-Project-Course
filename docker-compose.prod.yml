@@ -30,6 +30,8 @@ services:
       UVICORN_WORKERS: "${UVICORN_WORKERS:-2}"
     ports:
       - "8000:8000"
+    volumes:
+      - uploads_data:/app/uploads
     depends_on:
       postgres:
         condition: service_healthy
@@ -49,3 +51,4 @@ services:
 
 volumes:
   postgres_data:
+  uploads_data:

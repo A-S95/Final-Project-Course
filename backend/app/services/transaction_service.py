@@ -1,15 +1,35 @@
 import uuid
 from datetime import date
 from decimal import Decimal
+from pathlib import Path
 
 from sqlalchemy.orm import Session
 
-from app.core.exceptions import InvalidTransactionError, TransactionNotFoundError
+from app.core.config import settings
+from app.core.exceptions import (
+    InvalidReceiptError,
+    InvalidTransactionError,
+    ReceiptNotFoundError,
+    TransactionNotFoundError,
+)
 from app.models.account import Account
 from app.models.category import CategoryType
 from app.models.transaction import Transaction, TransactionType
 from app.repositories import transaction_repository
 from app.services import account_service, category_service
+
+# Fotos de recibos e PDFs digitalizados — o que cobre razoavelmente bem os
+# dois casos reais (tirar uma foto ao talão, ou anexar uma fatura em PDF).
+ALLOWED_RECEIPT_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp", "application/pdf"}
+# 8MB chega de sobra para uma foto de telemóvel comprimida ou um PDF de
+# poucas páginas, e evita que alguém encha o disco do container por engano.
+MAX_RECEIPT_SIZE_BYTES = 8 * 1024 * 1024
+
+
+def _receipt_path(transaction_id: uuid.UUID) -> Path:
+    directory = Path(settings.uploads_dir) / "receipts"
+    directory.mkdir(parents=True, exist_ok=True)
+    return directory / str(transaction_id)
 
 
 def _validate_combination(
@@ -195,5 +215,53 @@ def delete_transaction(db: Session, *, user_id: uuid.UUID, transaction_id: uuid.
         )
     _apply_balance_effect(transaction.type, account, destination, transaction.amount, sign=-1)
 
+    # O recibo em disco não tem FK nenhuma a apontar para ele — se a
+    # transação for apagada sem isto, o ficheiro fica órfão para sempre.
+    if transaction.receipt_content_type is not None:
+        _receipt_path(transaction.id).unlink(missing_ok=True)
+
     transaction_repository.delete(db, transaction)
     db.flush()
+
+
+def save_receipt(
+    db: Session,
+    *,
+    user_id: uuid.UUID,
+    transaction_id: uuid.UUID,
+    content: bytes,
+    content_type: str,
+) -> Transaction:
+    transaction = get_transaction(db, user_id=user_id, transaction_id=transaction_id)
+
+    if content_type not in ALLOWED_RECEIPT_CONTENT_TYPES:
+        raise InvalidReceiptError(
+            "Tipo de ficheiro não suportado. Usa uma imagem (JPEG, PNG, WEBP) ou um PDF."
+        )
+    if len(content) > MAX_RECEIPT_SIZE_BYTES:
+        raise InvalidReceiptError("O ficheiro é demasiado grande (máximo 8MB).")
+
+    _receipt_path(transaction.id).write_bytes(content)
+    transaction.receipt_content_type = content_type
+    db.flush()
+    return transaction
+
+
+def get_receipt(
+    db: Session, *, user_id: uuid.UUID, transaction_id: uuid.UUID
+) -> tuple[bytes, str]:
+    transaction = get_transaction(db, user_id=user_id, transaction_id=transaction_id)
+    if transaction.receipt_content_type is None:
+        raise ReceiptNotFoundError
+    return _receipt_path(transaction.id).read_bytes(), transaction.receipt_content_type
+
+
+def delete_receipt(db: Session, *, user_id: uuid.UUID, transaction_id: uuid.UUID) -> Transaction:
+    transaction = get_transaction(db, user_id=user_id, transaction_id=transaction_id)
+    if transaction.receipt_content_type is None:
+        raise ReceiptNotFoundError
+
+    _receipt_path(transaction.id).unlink(missing_ok=True)
+    transaction.receipt_content_type = None
+    db.flush()
+    return transaction

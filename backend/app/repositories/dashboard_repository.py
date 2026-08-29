@@ -3,12 +3,13 @@ from collections.abc import Sequence
 from datetime import date
 from decimal import Decimal
 
-from sqlalchemy import Row, String, cast, func, select
+from sqlalchemy import Row, String, case, cast, false, func, select
 from sqlalchemy.orm import Session
 
 from app.models.account import Account
 from app.models.category import Category
 from app.models.transaction import Transaction, TransactionType
+from app.models.user import User
 
 
 def total_balance(db: Session, user_ids: Sequence[uuid.UUID]) -> Decimal:
@@ -48,35 +49,78 @@ def expenses_by_category(
     month_start: date,
     next_month_start: date,
     group_by_name: bool = False,
-) -> list[Row[tuple[uuid.UUID | str, str, str | None, Decimal]]]:
+) -> list[Row[tuple[uuid.UUID | str, str, str | None, Decimal, bool, str | None]]]:
     """Despesas do mês somadas por categoria, ordenadas da maior para a menor.
 
     Só `EXPENSE` entra — receitas e transferências não são "gastos por categoria".
+    As duas últimas colunas (`is_shared`, `owner_name`) só se destinam a
+    desambiguar a vista de agregado (ver abaixo) — na vista individual vêm
+    sempre `False`/`None` e o serviço ignora-as.
 
     `group_by_name`: na vista de agregado, cada pessoa tem a sua própria categoria
-    "Alimentação" (categorias são sempre de um só utilizador) — sem isto, apareceriam
-    como duas linhas separadas em vez de uma só despesa combinada do casal. Agrupar
-    por nome funde-as; `category_id`/`color` tornam-se arbitrários nesse caso (o de
-    valor mais baixo), já que já não representam uma única categoria real.
+    "Alimentação" (categorias são sempre de um só utilizador). A forma correta de
+    juntar isto depende de a despesa ser partilhada ou não:
+    - **Partilhada** (`is_shared=True`): é o mesmo custo, só registado por mais que
+      uma pessoa (ex: os dois marcam a mesma renda) — funde-se sempre numa única
+      linha, somando os valores, ou a despesa apareceria a dobrar.
+    - **Pessoal** (`is_shared=False`): são despesas independentes que só por
+      coincidência têm o mesmo nome de categoria (ex: cada um paga a sua própria
+      renda a senhorios diferentes, ou têm ambos uma categoria "Lazer" para gastos
+      que nada têm a ver um com o outro) — juntar os valores numa só linha somaria
+      duas despesas não relacionadas como se fossem uma, o que é enganador. Ficam
+      uma linha por pessoa, com `owner_name` a identificar de quem é cada uma.
     """
     total = func.sum(Transaction.amount)
-    group_cols = (
-        (Category.name,) if group_by_name else (Category.id, Category.name, Category.color)
-    )
+
+    if not group_by_name:
+        # Vista individual: `is_shared` não interessa aqui (só desambigua entre
+        # pessoas diferentes na vista de agregado) — uma só linha por categoria,
+        # como sempre, com valores constantes nas duas colunas extra.
+        stmt = (
+            select(
+                Category.id,
+                Category.name,
+                Category.color,
+                total,
+                false(),
+                func.cast(None, String),
+            )
+            .join(Category, Transaction.category_id == Category.id)
+            .where(
+                Transaction.user_id.in_(user_ids),
+                Transaction.type == TransactionType.EXPENSE,
+                Transaction.date >= month_start,
+                Transaction.date < next_month_start,
+            )
+            .group_by(Category.id, Category.name, Category.color)
+            .order_by(total.desc())
+        )
+        return list(db.execute(stmt).all())
+
+    # `person_key`: `NULL` para despesas partilhadas (todas as pessoas caem no
+    # mesmo grupo, sejam quem forem — é isso que as funde), o `user_id` para
+    # despesas pessoais (cada pessoa fica no seu próprio grupo, mesmo com o
+    # mesmo nome de categoria que outra).
+    person_key = case((Transaction.is_shared.is_(True), None), else_=Transaction.user_id)
     # Postgres não tem min() nativo para UUID — passa por texto e volta a
     # UUID (o Pydantic aceita a string na resposta na mesma).
-    id_col = func.min(cast(Category.id, String)) if group_by_name else Category.id
-    color_col = func.min(Category.color) if group_by_name else Category.color
+    id_col = func.min(cast(Category.id, String))
+    color_col = func.min(Category.color)
+    # Dentro de um grupo pessoal há sempre um só utilizador, por isso `min` só
+    # escolhe entre valores iguais; num grupo partilhado o nome não se usa
+    # (o serviço ignora-o quando `is_shared` é verdadeiro).
+    owner_col = func.min(User.name)
     stmt = (
-        select(id_col, Category.name, color_col, total)
+        select(id_col, Category.name, color_col, total, Transaction.is_shared, owner_col)
         .join(Category, Transaction.category_id == Category.id)
+        .join(User, Transaction.user_id == User.id)
         .where(
             Transaction.user_id.in_(user_ids),
             Transaction.type == TransactionType.EXPENSE,
             Transaction.date >= month_start,
             Transaction.date < next_month_start,
         )
-        .group_by(*group_cols)
+        .group_by(Category.name, Transaction.is_shared, person_key)
         .order_by(total.desc())
     )
     return list(db.execute(stmt).all())
