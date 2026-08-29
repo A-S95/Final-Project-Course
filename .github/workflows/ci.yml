@@ -148,7 +148,11 @@ jobs:
         # Timeout explícito (60s): sem isto, um `wait-on` que nunca é
         # satisfeito fica pendurado até ao limite do job (6h por omissão) em
         # vez de falhar depressa com um erro percetível.
-        run: npx wait-on --timeout 60000 http://localhost:8000/health http://localhost:5173
+        # `http-get://` (não `http://`): por omissão o `wait-on` faz HEAD, e
+        # `/health` só está definido como `@app.get(...)` — HEAD devolvia
+        # sempre 405, fazendo o `wait-on` esgotar o tempo mesmo com o backend
+        # já de pé e a responder (apanhado numa corrida real do CI).
+        run: npx wait-on --timeout 60000 http-get://localhost:8000/health http-get://localhost:5173
       - name: Run E2E tests (Playwright)
         working-directory: frontend
         run: npm run test:e2e
