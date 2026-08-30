@@ -33,8 +33,7 @@ import {
 } from '@/lib/month'
 import { useAuth } from '@/features/auth/use-auth'
 
-// Paleta de recurso para categorias sem cor escolhida na página de Categorias
-// (mesma paleta do seletor de cor, para ficarem visualmente coerentes).
+// Fallback para categorias sem cor escolhida, mesma paleta do seletor.
 const FALLBACK_COLORS = CATEGORY_COLOR_PALETTE
 
 function formatMoney(value: string | number, currency: string) {
@@ -134,13 +133,11 @@ function InsightsCard({ insights }: { insights: Insight[] }) {
   )
 }
 
-// Conteúdo puro (sem <Card> à volta) — partilhado entre o cartão "Objetivos"
-// do desktop e o separador "Objetivos" da vista compacta em mobile (ver
-// MobileSecondaryTabs), que não pode meter um <Card> dentro doutro <Card>.
+// Sem <Card> à volta: partilhado entre o cartão desktop e o separador mobile
+// (MobileSecondaryTabs), que não pode meter <Card> dentro de <Card>.
 function GoalsList({ goals, currency }: { goals: Goal[]; currency: string }) {
   const reduceMotion = useReducedMotion()
-  // Os já atingidos vão para o fim — os que ainda precisam de atenção são o
-  // que vale a pena ver de relance no painel.
+  // Já atingidos vão para o fim; os que precisam de atenção ficam à vista.
   const sorted = [...goals].sort((a, b) => Number(a.is_achieved) - Number(b.is_achieved))
   const shown = sorted.slice(0, 3)
 
@@ -328,10 +325,7 @@ function ExpensesByCategory({
   }
 
   const chartData = items.map((item, index) => ({
-    // `category_id` sozinho não é único aqui — uma despesa partilhada e a
-    // pessoal de uma pessoa podem ter vindo da mesma categoria original (o
-    // backend escolhe um id representativo com `min()`) — por isso a chave
-    // junta também o dono, para nunca colidir entre duas linhas.
+    // category_id sozinho não é único: partilhada e pessoal podem partilhar categoria.
     key: `${item.category_id}:${item.owner_name ?? ''}`,
     name: item.owner_name ? `${item.name} · ${item.owner_name}` : item.name,
     value: Number(item.total),
@@ -401,10 +395,7 @@ function ExpensesByCategory({
   )
 }
 
-// Em mobile, "Despesas por categoria" e "Objetivos" são conteúdo para
-// explorar com calma — ao contrário de Insights/Próximos pagamentos, não são
-// urgentes. Em vez de mais scroll, ficam atrás de um separador simples
-// (mesmo estilo do seletor Individual/Agregado já usado no painel).
+// Em mobile, menos urgente que Insights/Próximos pagamentos: atrás de um separador.
 function MobileSecondaryTabs({
   expensesItems,
   goals,
@@ -465,10 +456,8 @@ export function DashboardPage() {
   // Se o utilizador saiu do agregado enquanto via a vista partilhada, volta a "individual".
   const effectiveScope: DashboardScope = hasHousehold ? scope : 'individual'
 
-  // `placeholderData: keepPreviousData` — ao trocar de mês/vista, mantém o
-  // resumo anterior visível (com `isFetching` a assinalar a atualização em
-  // curso) em vez de o ecrã ficar em branco até o novo mês chegar; é essa
-  // troca súbita que parecia um "piscar" ao navegar.
+  // keepPreviousData: mantém o resumo anterior visível ao trocar mês/vista,
+  // em vez do ecrã ficar em branco a piscar até o novo chegar.
   const {
     data,
     isLoading,
@@ -487,8 +476,7 @@ export function DashboardPage() {
     placeholderData: keepPreviousData,
   })
 
-  // Objetivos não têm mês/agregado — são sempre os do próprio utilizador,
-  // a mesma chave de query usada em routes/goals.tsx (a cache é partilhada).
+  // Sem mês/agregado, mesma chave de query de routes/goals.tsx (cache partilhada).
   const { data: goals } = useQuery({ queryKey: ['goals'], queryFn: goalsApi.listGoals })
 
   // Saldos por conta — sem mês/agregado, mesma chave de routes/accounts.tsx.

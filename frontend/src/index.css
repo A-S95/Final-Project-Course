@@ -110,6 +110,16 @@ body {
   background-image: linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%);
 }
 
+/* Sem isto, tocar num setor/barra/ponto do Recharts em mobile mostra o
+   retângulo preto de tap-highlight/foco por omissão do browser. */
+.recharts-wrapper *:focus,
+.recharts-wrapper *:focus-visible {
+  outline: none;
+}
+.recharts-wrapper svg * {
+  -webkit-tap-highlight-color: transparent;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

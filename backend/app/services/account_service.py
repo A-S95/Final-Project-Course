@@ -62,15 +62,12 @@ def update_account(
     if type is not None:
         account.type = type
     if initial_balance is not None and initial_balance != account.initial_balance:
-        # `current_balance` já pode divergir do `initial_balance` por causa de
-        # transações lançadas entretanto (Fase 5) — em vez de o sobrescrever,
-        # aplica-se só a diferença, preservando o efeito dessas transações.
+        # Aplica só a diferença, para preservar o efeito de transações já lançadas.
         delta = initial_balance - account.initial_balance
         account.current_balance += delta
         account.initial_balance = initial_balance
-    # Estes dois aceitam `null` como valor de destino válido (deixar de
-    # tratar a conta como cartão) — por isso o "foi enviado?" vem à parte
-    # do próprio valor, em vez do padrão "None = não mexer" usado acima.
+    # Estes dois aceitam `null` como destino válido, por isso o "foi enviado?"
+    # vem à parte do valor, ao contrário do padrão "None = não mexer" acima.
     if card_expiration_date_set:
         account.card_expiration_date = card_expiration_date
     if card_plafond_set:
@@ -86,8 +83,6 @@ def delete_account(db: Session, *, user_id: uuid.UUID, account_id: uuid.UUID) ->
     try:
         db.flush()
     except IntegrityError as exc:
-        # FK ON DELETE RESTRICT de `transactions` (Fase 5) ou `recurring_expenses`
-        # (Fase 9) — a conta está a ser usada. `rollback()` desfaz só até ao savepoint
-        # mais recente (ver tests/conftest.py), deixando a sessão utilizável.
+        # FK RESTRICT de transactions/recurring_expenses: conta em uso.
         db.rollback()
         raise AccountInUseError from exc

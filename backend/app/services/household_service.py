@@ -88,8 +88,7 @@ def leave_household(db: Session, *, user_id: uuid.UUID) -> None:
     household_repository.delete_member(db, membership)
     db.flush()
 
-    # Se o agregado ficou sem ninguém, é apagado (convites pendentes vão em
-    # cascata). Não há "agregado vazio" a pairar na base de dados.
+    # Sem membros, apaga o agregado (convites pendentes vão em cascata).
     if household_repository.count_members(db, household_id) == 0:
         household = household_repository.get_household(db, household_id)
         if household is not None:
@@ -183,8 +182,7 @@ def accept_invite(db: Session, *, user_id: uuid.UUID, invite_id: uuid.UUID) -> H
     invite.responded_at = datetime.now(UTC)
     household_repository.create_member(db, household_id=household.id, user_id=user_id)
 
-    # Qualquer outro convite pendente para esta pessoa deixa de fazer sentido —
-    # já só se pode pertencer a um agregado.
+    # Outros convites pendentes deixam de fazer sentido: só se pertence a um agregado.
     for other in household_repository.list_pending_invites_for_user(db, user_id):
         if other.id != invite.id:
             other.status = InviteStatus.CANCELLED

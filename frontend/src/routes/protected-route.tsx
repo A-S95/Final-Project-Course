@@ -5,12 +5,8 @@ import { AppShell } from '@/components/app-shell'
 import { ContentSpinner, Splash } from '@/components/splash'
 import { useAuth } from '@/features/auth/use-auth'
 
-// Rota de layout (React Router "nested routes"): monta o AppShell uma única
-// vez e mantém-no montado enquanto o utilizador navega entre páginas
-// protegidas — só o <Outlet/> (a página em si) entra/sai. Antes, cada rota
-// embrulhava individualmente <ProtectedRoute>{children}</ProtectedRoute>,
-// o que fazia a sidebar toda desmontar e remontar a cada clique no menu:
-// lida-se com isso aqui para a navegação parecer suave em vez de "piscar".
+// Rota de layout: monta o AppShell uma vez só, o <Outlet/> entra/sai sozinho.
+// Antes cada rota embrulhava <ProtectedRoute> individualmente e a sidebar remontava a cada clique.
 export function ProtectedRoute() {
   const { status } = useAuth()
   const location = useLocation()

@@ -1,15 +1,7 @@
 import { useId } from 'react'
 
-// Marca oficial da CentiSible (ver `logotipostyle.png` na raiz do projeto,
-// o style guide que a define): um "C" grosso e aberto — a letra da marca —
-// com um gráfico de barras ascendente e uma moeda (o pontinho) dentro do
-// espaço que ele desenha. "Letra C + Gráfico + Moeda = CentiSible", tal como
-// no guia. Gradiente diagonal só a verde (`--accent` até `--accent-strong`,
-// a mesma dupla usada em toda a app) para o anel e as barras; a moeda fica a
-// âmbar (`--accent-amber`) de propósito — um "cêntimo" dourado dentro de um
-// "C" verde lê-se melhor do que tudo na mesma cor. `useId` evita ids de
-// gradiente colididos quando a marca aparece montada mais do que uma vez ao
-// mesmo tempo (sidebar + splash, etc).
+// "C" + gráfico + moeda = CentiSible (ver logotipostyle.png). `useId` evita
+// ids de gradiente colididos quando a marca aparece montada duas vezes.
 export function LogoMark({ className = 'h-8 w-8' }: { className?: string }) {
   const gradientId = useId()
 
@@ -21,9 +13,7 @@ export function LogoMark({ className = 'h-8 w-8' }: { className?: string }) {
           <stop offset="1" stopColor="var(--accent-strong)" />
         </linearGradient>
       </defs>
-      {/* O "C": um anel grosso com uma abertura à direita, desenhado como um
-          arco (não um círculo tracejado) para controlar exatamente onde a
-          abertura fica e o tamanho das pontas arredondadas. */}
+      {/* Arco, não círculo tracejado: controla onde fica a abertura do "C". */}
       <path
         d="M 24.70 21.87 A 10.5 10.5 0 1 1 24.70 10.13"
         fill="none"

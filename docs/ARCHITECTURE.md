@@ -38,7 +38,7 @@ Regra: um router nunca fala diretamente com a base de dados. Um router chama um 
 - **SQLAlchemy 2.x** (estilo `Mapped[]`/`mapped_column`) — ORM moderno, type-safe.
 - **Alembic** — migrations versionadas.
 - **Pydantic v2** — schemas de validação/serialização.
-- **PostgreSQL** — porquê (ver secção 14).
+- **PostgreSQL** — relacional, transações ACID a sério (importante para dinheiro), tipos `NUMERIC` e `Enum` nativos, e é o que a maioria das vagas de backend júnior pede.
 
 ### Frontend
 
@@ -50,6 +50,11 @@ Regra: um router nunca fala diretamente com a base de dados. Um router chama um 
 - **shadcn/ui** — componentes (botão, card, modal, input, tabs, dropdown...) baseados em Radix UI + Tailwind, copiados para dentro do próprio código do projeto (não é uma dependência de runtime como uma UI kit tradicional). Dá um aspeto profissional tipo dashboard SaaS rapidamente, mantendo controlo total sobre o código de cada componente — importante para conseguir explicar cada peça na defesa.
 - **Framer Motion (`motion`)** — animações declarativas: transições de página, entrada de cards/listas, números a contar no dashboard, hover/tap states. Standard de facto em React para este tipo de polish visual.
 - **Recharts** — gráficos (despesas por categoria, evolução mensal, progresso de orçamentos/objetivos). Biblioteca de gráficos React mais usada no mercado, animações incluídas por defeito, API simples de justificar numa entrevista.
+- **`vite-plugin-pwa`** — gera o manifest e o service worker a partir da configuração do `vite.config.ts`. A app é instalável (Android e iOS, testado a sério em ambos), com um `manifest.webmanifest` próprio e ícones dedicados. O service worker só faz precache dos ficheiros do build; os pedidos à API nunca passam por cache (`NetworkOnly` explícito em `/api/`) — dados financeiros vêm sempre da rede, nunca de uma versão guardada. Ver `DEV_JOURNAL.md`, entrada "PWA: manifest, ícones e service worker".
+
+### Hospedagem em produção
+
+Frontend na **Vercel** (build Vite estático), backend na **Render** (a partir do `backend/Dockerfile.prod`) e base de dados na **Neon** (Postgres gerido, serverless). Os três têm planos gratuitos reais, sem cartão de crédito. Considerei primeiro a Fly.io, mas o plano gratuito dela deixou de existir em 2024, ver `DEV_JOURNAL.md` para o raciocínio completo da escolha. Uma consequência direta desta escolha, com frontend e backend em domínios diferentes: o cookie do refresh token precisa de `SameSite=None` em produção, não `SameSite=Lax` (ver secção 8, "Autenticação").
 
 ### Porquê não usar as tecnologias excluídas agora
 
@@ -63,21 +68,22 @@ Redis: sem necessidade de cache distribuído/sessions partilhadas a esta escala.
 |---|---|
 | Auth | Registo, login, logout, refresh token, rotas protegidas |
 | Users | Perfil com nome, moeda, rendimento mensal |
-| Accounts | CRUD de contas financeiras, saldo atual calculado |
+| Accounts | CRUD de contas financeiras, saldo atual calculado; validade e plafond opcionais para cartões, com alerta em Insights quando a validade se aproxima ou o saldo cai abaixo do plafond |
 | Categories | CRUD de categorias próprias do utilizador; bloqueio de eliminação se houver transações associadas |
-| Transactions | CRUD; tipos INCOME/EXPENSE/TRANSFER; transferências não contam como despesa |
+| Transactions | CRUD; tipos INCOME/EXPENSE/TRANSFER; transferências não contam como despesa; despesa marcável como partilhada (`is_shared`, para a vista de Agregado Familiar); recibo opcional anexado (foto ou PDF) |
 | Recurring Expenses | CRUD; frequência MONTHLY/YEARLY; geração de transações (mecanismo simples) |
 | Budgets | Orçamento mensal por categoria; cálculo automático de gasto/restante/% |
 | Goals | Objetivos com target/current/deadline; projeção de conclusão |
 | Dashboard | Resumo financeiro do mês selecionado + gráfico de despesas por categoria |
 | Monthly History | Navegação entre meses + comparação com mês anterior |
 | Insights | Regras simples sobre variações, % de orçamento usado, projeções |
-| Households | Criar agregado familiar; convidar outro utilizador (por email) para o agregado; aceitar/recusar convite; alternar dashboard entre vista "Individual" e vista "Agregado Familiar" (soma de contas/transações/saldos de todos os membros) |
+| Households | Criar agregado familiar; convidar outro utilizador (por email) para o agregado; aceitar/recusar convite; alternar dashboard entre vista "Individual" e vista "Agregado Familiar" (soma de contas/transações/saldos de todos os membros, sem duplicar despesas partilhadas por homónimo entre pessoas) |
+| PWA | App instalável no telemóvel e no computador (manifest, ícones, service worker); testado a sério com instalação real no Android |
 
 ## 3. Requisitos não funcionais
 
 - **Segurança**: nunca expor dados de outro utilizador; passwords com hash forte; secrets fora do código; CORS restrito.
-- **Correção financeira**: nenhum cálculo monetário pode usar float ingénuo (ver secção 15).
+- **Correção financeira**: nenhum cálculo monetário pode usar float ingénuo (ver secção 8, "Dinheiro").
 - **Testabilidade**: lógica de negócio isolada em services, testável sem HTTP nem UI.
 - **Manutenibilidade**: camadas com responsabilidade única; sem abstrações prematuras.
 - **Portabilidade**: `docker compose up` deve levantar o stack completo sem passos manuais extra.
@@ -111,6 +117,8 @@ Todas as tabelas: `id UUID PK`, `created_at`, `updated_at` (timestamps com timez
 | type | enum (`BANK`, `WALLET`, `SAVINGS`, `CREDIT_CARD`, `OTHER`) | |
 | initial_balance | NUMERIC(12,2) | NOT NULL default 0 |
 | current_balance | NUMERIC(12,2) | NOT NULL, mantido consistente pelo service layer |
+| card_expiration_date | date | nullable — validade física do cartão, gera alerta em Insights perto da data |
+| card_plafond | NUMERIC(12,2) | nullable — teto de saldo esperado de um cartão pré-pago; alerta em Insights se `current_balance` cair abaixo |
 | created_at / updated_at | | |
 
 ### categories
@@ -136,6 +144,8 @@ Todas as tabelas: `id UUID PK`, `created_at`, `updated_at` (timestamps com timez
 | amount | NUMERIC(12,2) | NOT NULL, CHECK (amount > 0) — sinal vem do `type`, não do valor |
 | description | varchar | |
 | date | date | NOT NULL, indexed |
+| is_shared | boolean | NOT NULL default false — despesa do agregado (renda, luz, ...), usada só na vista de Agregado Familiar para não duplicar categorias homónimas entre pessoas |
+| receipt_content_type | varchar | nullable — presença indica que há um recibo anexado; o ficheiro em si vive em disco (`uploads_dir`), nunca por URL pública |
 | created_at / updated_at | | |
 | CHECK | | `type = 'TRANSFER'` ⇒ `destination_account_id IS NOT NULL AND category_id IS NULL` |
 
@@ -188,7 +198,7 @@ Todas as tabelas: `id UUID PK`, `created_at`, `updated_at` (timestamps com timez
 | revoked | boolean | default false |
 | created_at | | |
 
-Tabela necessária para suportar logout real e rotação/revogação de refresh tokens (ver secção auth).
+Tabela necessária para suportar logout real e rotação/revogação de refresh tokens (ver secção 8, "Autenticação").
 
 ### households
 | coluna | tipo | notas |
@@ -262,6 +272,8 @@ erDiagram
         string type
         numeric initial_balance
         numeric current_balance
+        date card_expiration_date
+        numeric card_plafond
     }
     CATEGORIES {
         uuid id PK
@@ -278,6 +290,8 @@ erDiagram
         string type
         numeric amount
         date date
+        boolean is_shared
+        string receipt_content_type
     }
     RECURRING_EXPENSES {
         uuid id PK
@@ -334,22 +348,22 @@ erDiagram
 
 Nota: `TRANSACTIONS.destination_account_id` é também FK para `ACCOUNTS`, omitido da relação Mermaid acima por limitação de sintaxe (não suporta duas relações rotuladas entre o mesmo par de entidades de forma limpa) — está documentado na tabela da secção 4.
 
-Todas as relações "owns" são 1:N com `ON DELETE CASCADE` a partir de `users` (se um utilizador for apagado, os seus dados vão com ele — decisão razoável para dados pessoais). As relações de `categories`/`accounts` para `transactions`/`recurring_expenses`/`budgets` são 1:N com `ON DELETE RESTRICT` — **não** cascade, porque apagar uma categoria não deve apagar transações silenciosamente (ver secção 6/8).
+Todas as relações "owns" são 1:N com `ON DELETE CASCADE` a partir de `users` (se um utilizador for apagado, os seus dados vão com ele — decisão razoável para dados pessoais). As relações de `categories`/`accounts` para `transactions`/`recurring_expenses`/`budgets` são 1:N com `ON DELETE RESTRICT` — **não** cascade, porque apagar uma categoria não deve apagar transações silenciosamente (ver secção 8, "Eliminação de categorias com transações associadas").
 
 ---
 
 ## 6. Estrutura de pastas
 
 ```
-fintrack/
+CentiSible/
 ├── backend/
 │   ├── app/
 │   │   ├── main.py
-│   │   ├── core/           # config, security (jwt/hash), exceptions, logging
+│   │   ├── core/           # config, security (jwt/hash), exceptions, logging, rate limit
 │   │   ├── api/
-│   │   │   └── v1/         # routers: auth, users, accounts, categories,
-│   │   │                   # transactions, budgets, goals, recurring_expenses,
-│   │   │                   # dashboard, analytics, insights
+│   │   │   └── v1/         # routers: auth, users, accounts, categories, transactions,
+│   │   │                   # dashboard, households, budgets, recurring_expenses,
+│   │   │                   # goals, analytics, insights
 │   │   ├── models/         # SQLAlchemy ORM models
 │   │   ├── schemas/        # Pydantic request/response models
 │   │   ├── services/       # business logic
@@ -358,29 +372,40 @@ fintrack/
 │   ├── tests/
 │   │   ├── unit/
 │   │   ├── integration/    # Postgres real (via serviço do docker-compose / CI)
-│   │   └── api/             # httpx + FastAPI TestClient
+│   │   ├── api/             # httpx + FastAPI TestClient
+│   │   └── security/        # testes dedicados a exposição de dados/hardening
+│   ├── scripts/             # scripts pontuais (contas de teste/demonstração) — gitignored,
+│   │                        # nunca fazem parte da app nem do CI
 │   ├── alembic/
-│   ├── Dockerfile
+│   ├── Dockerfile           # desenvolvimento (uv, hot reload)
+│   ├── Dockerfile.prod      # produção (sem uv na imagem final, sem --reload)
 │   └── pyproject.toml
 │
 ├── frontend/
 │   ├── src/
 │   │   ├── main.tsx
-│   │   ├── routes/          # páginas: login, dashboard, transactions, ...
-│   │   ├── components/      # componentes reutilizáveis
+│   │   ├── routes/          # páginas: login, dashboard, transactions, landing, ...
+│   │   ├── components/      # componentes reutilizáveis (inclui ui/ ao estilo shadcn)
 │   │   ├── features/        # lógica por domínio (hooks + api calls por feature)
-│   │   ├── api/              # cliente HTTP, types gerados/partilhados
+│   │   ├── api/              # cliente HTTP, gestão do access token em memória
 │   │   ├── lib/               # utils
-│   │   └── styles/
-│   ├── tests/                # vitest
-│   ├── e2e/                  # playwright
-│   ├── Dockerfile
+│   │   └── index.css         # tokens de tema (claro/escuro) + Tailwind
+│   ├── e2e/                  # playwright — sem camada de testes unitários (vitest) à parte
+│   ├── scripts/               # ex: gerar os ícones da PWA a partir da marca
+│   ├── public/                 # manifest da PWA, ícones, favicon
+│   ├── Dockerfile             # desenvolvimento (servidor Vite)
+│   ├── Dockerfile.prod        # produção (build estático servido por nginx)
+│   ├── nginx.conf
 │   └── package.json
 │
 ├── docs/
-│   └── ARCHITECTURE.md       # este documento
+│   ├── ARCHITECTURE.md       # este documento
+│   └── DEV_JOURNAL.md        # diário de desenvolvimento — o "porquê" de cada decisão
 │
-├── docker-compose.yml
+├── docker-compose.yml         # desenvolvimento
+├── docker-compose.prod.yml    # produção (referência local; em produção a app corre
+│                               # na Vercel + Render + Neon, não neste compose)
+├── .env.prod.example
 ├── .github/workflows/ci.yml
 └── README.md
 ```
@@ -389,7 +414,7 @@ fintrack/
 
 ## 7. Roadmap por fases
 
-Cada fase entrega uma "fatia vertical" (backend + frontend quando aplicável) para se ver progresso real desde cedo, em vez de meses de só-backend.
+**Todas as fases 0–16 estão concluídas.** Cada fase entrega uma "fatia vertical" (backend + frontend quando aplicável) para se ver progresso real desde cedo, em vez de meses de só-backend.
 
 | Fase | Conteúdo |
 |---|---|
@@ -413,6 +438,8 @@ Cada fase entrega uma "fatia vertical" (backend + frontend quando aplicável) pa
 
 Cada fase segue sempre: objetivo → conceitos a aprender → ficheiros a criar → implementação → explicação → como correr → como testar → revisão.
 
+**Trabalho a mais, para além destas 17 fases** (todo documentado em `DEV_JOURNAL.md`, com o "porquê" e a validação de cada um): rebatismo do projeto para "CentiSible" com identidade visual própria (paleta "Oliva", logótipo desenhado à mão); reformulação geral do frontend interno (navegação lateral persistente, animações, responsividade); despesas partilhadas no agregado familiar; recibos anexados a transações; validade e plafond de cartões pré-pagos, com alertas; rate limiting, logging estruturado e limpeza periódica de refresh tokens; PWA instalável; e o deploy real em produção (Vercel + Render + Neon), incluindo um bug de sessão em produção causado pela política `SameSite` do cookie de refresh (ver secção 8).
+
 ---
 
 ## 8. Decisões técnicas importantes
@@ -431,7 +458,8 @@ Cada fase segue sempre: objetivo → conceitos a aprender → ficheiros a criar 
 - Password hashing: biblioteca **`bcrypt`** usada diretamente (`bcrypt.hashpw`/`checkpw`), não `passlib[bcrypt]`. Decisão original era `passlib`, mas na prática o `passlib` (não tem release desde 2020) está incompatível com versões atuais do `bcrypt` — ver `DEV_JOURNAL.md`, entrada "Fase 2", para o problema concreto encontrado e o porquê da mudança. `bcrypt` sozinho cobre as duas funções que precisávamos (hash, verify) sem essa camada extra.
 - Tokens: **PyJWT** (mais simples e ativamente mantido do que `python-jose`).
 - Access token: curta duração (15 min), devolvido no corpo da resposta, guardado em memória no frontend (contexto React), nunca em `localStorage` (mitiga roubo via XSS).
-- Refresh token: duração longa (30 dias), token opaco de alta entropia (`secrets.token_urlsafe`, não um JWT), guardado em **cookie `httpOnly`, `Secure` (fora de `development`), `SameSite=Lax`**, com `Path=/api/v1/auth` — só é enviado nos pedidos de auth, nunca nos outros pedidos à API. Persistido como hash **SHA-256** (não bcrypt — é um segredo aleatório de 512 bits, não uma password humana; não há força bruta a mitigar, só um leak da tabela a evitar) na tabela `refresh_tokens`, com rotação a cada `/refresh` (o token antigo é sempre revogado, mesmo em caso de reutilização indevida) para permitir revogação/logout real.
+- Refresh token: duração longa (30 dias), token opaco de alta entropia (`secrets.token_urlsafe`, não um JWT), guardado em **cookie `httpOnly`, `Secure` (fora de `development`)**, com `Path=/api/v1/auth` — só é enviado nos pedidos de auth, nunca nos outros pedidos à API. Persistido como hash **SHA-256** (não bcrypt — é um segredo aleatório de 512 bits, não uma password humana; não há força bruta a mitigar, só um leak da tabela a evitar) na tabela `refresh_tokens`, com rotação a cada `/refresh` (o token antigo é sempre revogado, mesmo em caso de reutilização indevida) para permitir revogação/logout real.
+  - **`SameSite`: `Lax` em desenvolvimento/testes, `None` em produção.** Um cookie `Lax` nunca é enviado pelo browser em pedidos entre sites diferentes, só entre portas diferentes do mesmo site — por isso funcionava sem problema em dev local (frontend e backend só diferem na porta), mas partia a sessão a sério em produção, onde o frontend (Vercel) e o backend (Render) vivem em domínios completamente diferentes. `None` exige `Secure`, o que já estava garantido só em produção, por isso as duas condições andam sempre a par. Apanhei este bug já depois do primeiro deploy real, ver `DEV_JOURNAL.md`, entrada "Bug real: a sessão morria logo a seguir ao login em produção".
 
 **Repository pattern**: usado de forma leve — funções que encapsulam queries SQLAlchemy por entidade, não uma abstração genérica tipo `IRepository<T>`. O objetivo é separar "como buscar dados" de "o que fazer com eles", e tornar os services testáveis com repositórios simples de substituir/mockar quando fizer sentido.
 
@@ -450,6 +478,24 @@ Cada fase segue sempre: objetivo → conceitos a aprender → ficheiros a criar 
 
 ---
 
-## 9. Pontos em aberto para a Fase 0
+## 9. Pontos em aberto
 
-Nenhum bloqueante — as decisões acima cobrem o essencial. Se preferires alterar alguma (ex: Argon2 em vez de bcrypt, cêntimos em vez de NUMERIC), é só dizer antes de começarmos a codificar; depois disso tratamos como decisão tomada e seguimos em frente.
+Nada bloqueante, a app está completa e em produção. Coisas que ainda vale a pena considerar, se continuar a trabalhar nisto.
+
+**Um comportamento a decidir, não só um "nice to have"**: as despesas recorrentes não se geram sozinhas. `POST /recurring-expenses/generate` só corre quando alguém carrega no botão "Gerar transações em falta" na página Recorrentes, não há nenhum cron nem tarefa de fundo a chamar isto automaticamente. Uma recorrência criada (ex: "Netflix, dia 5") nunca aparece como transação sozinha, fica sempre à espera desse clique manual. Por decidir: aceitar isto como um passo manual esperado (e explicar assim na defesa), ou ligar a geração a algo automático (ex: correr ao abrir o dashboard, ou juntar a um scheduler como o da limpeza de refresh tokens).
+
+**Infraestrutura e dados**:
+- **Recibos em disco na Render**: o plano gratuito não dá disco persistente, por isso um recibo anexado a uma transação não sobrevive a um reinício do container em produção (em dev local, com o volume do `docker-compose`, isto não acontece). Resolver a sério exigiria mover o armazenamento para algo como Cloudflare R2, uma mudança de arquitetura, não só de configuração.
+- **Limpeza de `refresh_tokens` menos fiável em produção do que parece**: corre uma vez a cada 24h dentro do próprio processo (ver secção 8, "Geração de transações recorrentes" tem o mesmo tipo de mecanismo). Na Render grátis, que adormece ao fim de 15 min sem pedidos, um ciclo contínuo de 24h raramente se completa. Impacto baixo à escala atual, mas vale a pena saber.
+- **Responsividade em telemóvel a sério**: a landing page e as páginas de login/registo foram desenhadas e testadas sobretudo em desktop; a app instalada como PWA foi testada e funciona bem, mas ainda não revi essas páginas públicas especificamente em ecrãs pequenos.
+
+**Segurança**:
+- Recuperação de password ("esqueci-me da password") e confirmação de email no registo. Ambas precisam da mesma peça que ainda não existe: um serviço a enviar emails a sério (ex: Resend, tier gratuito generoso). Depois disso, recuperação precisa de um token de reset com prazo curto + duas páginas novas; confirmação precisa de um campo `email_verified` + token de verificação + decidir se bloqueia o login até confirmar.
+- Cabeçalhos de segurança HTTP (CSP, `X-Frame-Options`, `Strict-Transport-Security`) — não existem hoje, fáceis de acrescentar com um middleware pequeno.
+- Scan de dependências no CI (`pip-audit`/`npm audit`, ou o Dependabot nativo do GitHub) — o `ci.yml` hoje só faz lint/test/build, nada avisa de vulnerabilidades conhecidas em pacotes.
+- 2FA (TOTP) — pesa bem numa defesa para uma app de finanças, mas é trabalho a sério (QR code, recovery codes).
+
+**Funcionalidade**:
+- Exportar dados (CSV/PDF de transações ou do resumo mensal).
+- Notificações push (já é PWA, dava para avisar de orçamento ultrapassado mesmo com a app fechada) — exige um servidor de chaves VAPID, mais trabalho do que parece à primeira vista.
+- Importar extrato bancário (CSV) — pouparia lançar tudo à mão, mas é um recorte de escopo grande.

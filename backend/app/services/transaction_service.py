@@ -18,12 +18,9 @@ from app.models.transaction import Transaction, TransactionType
 from app.repositories import transaction_repository
 from app.services import account_service, category_service
 
-# Fotos de recibos e PDFs digitalizados — o que cobre razoavelmente bem os
-# dois casos reais (tirar uma foto ao talão, ou anexar uma fatura em PDF).
+# Foto ao talão ou fatura digitalizada — os dois casos reais.
 ALLOWED_RECEIPT_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp", "application/pdf"}
-# 8MB chega de sobra para uma foto de telemóvel comprimida ou um PDF de
-# poucas páginas, e evita que alguém encha o disco do container por engano.
-MAX_RECEIPT_SIZE_BYTES = 8 * 1024 * 1024
+MAX_RECEIPT_SIZE_BYTES = 8 * 1024 * 1024  # chega para foto/PDF, evita encher o disco
 
 
 def _receipt_path(transaction_id: uuid.UUID) -> Path:
@@ -215,8 +212,7 @@ def delete_transaction(db: Session, *, user_id: uuid.UUID, transaction_id: uuid.
         )
     _apply_balance_effect(transaction.type, account, destination, transaction.amount, sign=-1)
 
-    # O recibo em disco não tem FK nenhuma a apontar para ele — se a
-    # transação for apagada sem isto, o ficheiro fica órfão para sempre.
+    # Sem isto o ficheiro do recibo fica órfão em disco (sem FK a apontar para ele).
     if transaction.receipt_content_type is not None:
         _receipt_path(transaction.id).unlink(missing_ok=True)
 

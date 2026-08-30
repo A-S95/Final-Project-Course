@@ -1,16 +1,13 @@
 import { z } from 'zod'
 import { ACCOUNT_TYPES } from './types'
 
-// Aceita "100", "100.5", "100.50", "-20.00" — nunca mais de 2 casas decimais.
-// A validação de negócio a sério (NUMERIC(12,2)) é feita no backend; isto só
-// evita submeter algo que o backend rejeitaria de forma óbvia.
+// Aceita "100", "100.50", "-20.00", nunca mais de 2 casas. Validação a sério fica no backend.
 const decimalString = z
   .string()
   .min(1, 'Introduz um valor')
   .regex(/^-?\d+(\.\d{1,2})?$/, 'Usa um valor numérico com no máximo 2 casas decimais')
 
-// Plafond: mesma forma que initial_balance mas opcional (string vazia = "não
-// definido") — o form converte '' para null antes de enviar ao backend.
+// Plafond: como initial_balance mas opcional; '' vira null antes de enviar ao backend.
 const optionalDecimalString = z
   .string()
   .regex(/^-?\d+(\.\d{1,2})?$/, 'Usa um valor numérico com no máximo 2 casas decimais')

@@ -4,11 +4,8 @@ import sys
 from datetime import UTC, datetime
 from typing import Any
 
-# Requisito da secção 3 do ARCHITECTURE.md ("observabilidade mínima"): logging
-# estruturado de erros, sem puxar uma stack de observability completa (ex:
-# structlog, Sentry) para uma app pessoal de baixo tráfego. JSON em stdout é
-# suficiente para ser lido/filtrado por qualquer agregador de logs, incluindo
-# `docker compose logs`.
+# JSON em stdout: suficiente para filtrar com `docker compose logs`, sem stack
+# de observability completa (structlog/Sentry) para uma app de baixo tráfego.
 
 _EXTRA_FIELDS = ("path", "method", "client_host", "user_id")
 
@@ -32,10 +29,7 @@ class JSONFormatter(logging.Formatter):
 
 def configure_logging() -> None:
     """Substitui os handlers da root logger por um único handler JSON em stdout.
-
-    Chamado uma vez no arranque da app (`main.py`). Idempotente — pode ser
-    chamado outra vez (ex: em testes) sem duplicar handlers.
-    """
+    Idempotente — pode ser chamado outra vez (ex: em testes) sem duplicar handlers."""
     handler = logging.StreamHandler(sys.stdout)
     handler.setFormatter(JSONFormatter())
     root = logging.getLogger()
@@ -43,7 +37,5 @@ def configure_logging() -> None:
     root.setLevel(logging.INFO)
 
 
-# Logger dedicado para erros da aplicação (exceções não tratadas, falhas de
-# tarefas de fundo) — separado dos loggers do uvicorn/sqlalchemy para ser
-# fácil de filtrar (`logger == "fintrack.errors"`).
+# Separado dos loggers do uvicorn/sqlalchemy para filtrar por `logger == "fintrack.errors"`.
 error_logger = logging.getLogger("fintrack.errors")

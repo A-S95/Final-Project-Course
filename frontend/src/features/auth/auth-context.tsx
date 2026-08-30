@@ -11,10 +11,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let cancelled = false
-    // Ao abrir a app, tenta renovar a sessão a partir do refresh token no
-    // cookie httpOnly — se existir e for válido, o utilizador não precisa de
-    // fazer login outra vez só porque recarregou a página (o access token em
-    // memória perde-se sempre a um refresh, de propósito).
+    // O access token perde-se a um refresh de propósito; recupera-se aqui via cookie.
     refreshSession().then((result) => {
       if (cancelled) return
       setUser(result?.user ?? null)

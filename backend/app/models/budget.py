@@ -33,18 +33,14 @@ class Budget(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    # `RESTRICT` (ver ARCHITECTURE.md secção 5): eliminar uma categoria com
-    # orçamentos associados devolve 409 — o `category_service` já traduz qualquer
-    # `IntegrityError` de FK num `CategoryInUseError`.
+    # RESTRICT: eliminar categoria com orçamentos associados devolve 409, não cascade.
     category_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("categories.id", ondelete="RESTRICT"),
         nullable=False,
         index=True,
     )
-    # Primeiro dia do mês (ex: 2026-08-01) — o service normaliza sempre para dia 1,
-    # o que simplifica as queries "orçamentos deste mês".
-    period_month: Mapped[date] = mapped_column(Date, nullable=False)
+    period_month: Mapped[date] = mapped_column(Date, nullable=False)  # sempre dia 1
     amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

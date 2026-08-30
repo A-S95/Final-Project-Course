@@ -17,11 +17,9 @@ export type Transaction = {
   amount: string
   description: string | null
   date: string
-  // Despesa do agregado (ex: renda paga por uma pessoa, mas da casa) — ver
-  // ARCHITECTURE.md secção 8. Sem efeito fora de um agregado.
+  // Despesa do agregado (ver ARCHITECTURE.md secção 8); sem efeito fora de um agregado.
   is_shared: boolean
-  // `null` = sem recibo anexado. O ficheiro em si não vem aqui — pede-se à
-  // parte com getReceipt() (protegido, não dá para pôr direto num <img src>).
+  // null = sem recibo. Ficheiro pede-se à parte com getReceipt() (protegido).
   receipt_content_type: string | null
   created_at: string
   updated_at: string

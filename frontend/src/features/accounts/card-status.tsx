@@ -6,9 +6,7 @@ import type { Account } from './types'
 
 const EXPIRATION_WARNING_DAYS = 30
 
-// Mesma regra do backend (insights_service._CARD_EXPIRATION_WARNING_DAYS) —
-// mostrado aqui como feedback imediato no cartão, sem esperar pelo alerta
-// no painel principal.
+// Mesma regra do backend (insights_service._CARD_EXPIRATION_WARNING_DAYS).
 export function CardStatus({
   account,
   currency,
@@ -18,8 +16,7 @@ export function CardStatus({
   currency: string
   formatMoney: (value: string, currency: string) => string
 }) {
-  // `Date.now()` é impuro — calculado uma vez por montagem (como o padrão já
-  // usado em routes/dashboard.tsx para "hoje"), granularidade ao dia chega.
+  // Date.now() é impuro: calculado uma vez por montagem, granularidade ao dia chega.
   const now = useMemo(() => new Date().getTime(), [])
   const navigate = useNavigate()
   const badges: ReactNode[] = []
@@ -81,9 +78,7 @@ export function CardStatus({
             size="sm"
             className="mt-0.5 self-start"
             onClick={(e) => {
-              // O crachá vive dentro de cartões clicáveis (ex: linha de conta
-              // com "Editar"/"Eliminar" por baixo) — sem isto, o clique
-              // também dispararia o que estiver à volta.
+              // Crachá dentro de cartões clicáveis: sem isto, o clique também dispara o cartão.
               e.stopPropagation()
               const state: TransactionsLocationState = {
                 prefillTransaction: {

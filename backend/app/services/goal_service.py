@@ -19,9 +19,7 @@ def _months_until(deadline: date, today: date) -> int:
 
 
 def _to_read(goal: Goal, *, today: date) -> GoalRead:
-    # `current_amount`/`target_amount` são normalizados a 2 casas — quando vêm de um
-    # default Pydantic (`Decimal("0")`) e não de um round-trip à BD, ainda não têm
-    # as casas decimais fixas.
+    # Normaliza a 2 casas: um default Pydantic (Decimal("0")) ainda não vem quantizado.
     target = goal.target_amount.quantize(_CENTS)
     current = goal.current_amount.quantize(_CENTS)
     remaining = max(target - current, Decimal(0)).quantize(_CENTS)

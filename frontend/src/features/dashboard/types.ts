@@ -6,10 +6,7 @@ export type CategoryExpense = {
   color: string | null
   // Decimal do backend chega sempre como string — ver features/auth/types.ts.
   total: string
-  // Só na vista de agregado: de quem é esta despesa pessoal, quando há mais
-  // que um membro com uma categoria do mesmo nome (ex: "Alimentação" da
-  // Antonio vs. da Beatriz). `null` para despesas partilhadas (já fundidas
-  // entre todos os membros que as marcaram) e sempre na vista individual.
+  // Dono da despesa quando há categorias homónimas entre membros; null se partilhada.
   owner_name: string | null
 }
 
@@ -25,7 +22,6 @@ export type DashboardSummary = {
   // Rácio para exibição (não é dinheiro) — número ou null se não houve receitas.
   savings_rate: number | null
   expenses_by_category: CategoryExpense[]
-  // Quanto de `total_expenses` foi marcado como despesa partilhada do
-  // agregado — só relevante quando `scope === 'household'`.
+  // Parte de total_expenses partilhada; só relevante quando scope === 'household'.
   shared_expenses_total: string
 }

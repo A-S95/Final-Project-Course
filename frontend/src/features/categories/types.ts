@@ -23,10 +23,7 @@ export type CategoryInput = {
   color?: string | null
 }
 
-// Paleta curada para o seletor de cor — as mesmas cores servem de fallback
-// no gráfico do dashboard (`routes/dashboard.tsx`) para categorias sem cor
-// definida, por isso escolher uma daqui garante sempre bom contraste em
-// ambos os temas.
+// Mesma paleta serve de fallback no gráfico do dashboard para categorias sem cor.
 export const CATEGORY_COLOR_PALETTE = [
   '#6552f5',
   '#0ea5e9',
@@ -38,9 +35,7 @@ export const CATEGORY_COLOR_PALETTE = [
   '#14b8a6',
 ] as const
 
-// Conjunto pequeno e deliberadamente genérico — cobre as categorias mais
-// comuns de uma app de finanças pessoais sem precisar de uma biblioteca de
-// ícones (o campo `icon` é só texto livre no modelo).
+// Genérico de propósito: `icon` é texto livre no modelo, não precisa de biblioteca.
 export const CATEGORY_ICON_OPTIONS = [
   '🍔',
   '🛒',

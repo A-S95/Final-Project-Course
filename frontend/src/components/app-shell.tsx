@@ -46,9 +46,7 @@ function initials(name: string) {
 function Brand() {
   const reduceMotion = useReducedMotion()
 
-  // O AppShell (rota de layout) só monta uma vez por sessão autenticada —
-  // não a cada navegação — por isso o flip-in de entrada é seguro aqui, não
-  // se repete a cada clique na sidebar.
+  // AppShell só monta uma vez por sessão, não a cada navegação: flip-in seguro aqui.
   return (
     <Link to="/dashboard" className="font-display inline-flex items-center gap-2 font-semibold text-ink">
       <motion.span
@@ -208,8 +206,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const location = useLocation()
 
-  // Fecha o drawer sempre que a rota muda (ex: utilizador navegou por outro
-  // meio, como o botão "voltar" do browser, sem passar por onNavigate).
+  // Fecha o drawer quando a rota muda por outro meio (ex: "voltar" do browser).
   useEffect(() => {
     setDrawerOpen(false)
   }, [location.pathname])

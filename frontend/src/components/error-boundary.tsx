@@ -4,10 +4,7 @@ import { Button } from '@/components/ui/button'
 type Props = { children: ReactNode }
 type State = { error: Error | null }
 
-// Componente de classe de propósito — é a única forma que o React oferece de
-// apanhar erros de render de componentes descendentes (não há equivalente em
-// hooks). Sem isto, um erro inesperado em qualquer página deixava a SPA
-// inteira em branco, sem qualquer forma de recuperar sem um refresh manual.
+// Classe de propósito: é a única forma que o React oferece de apanhar erros de render.
 export class ErrorBoundary extends Component<Props, State> {
   state: State = { error: null }
 

@@ -27,8 +27,7 @@ function formatMoney(value: string, currency: string) {
   return new Intl.NumberFormat('pt-PT', { style: 'currency', currency }).format(Number(value))
 }
 
-// O form usa '' para "não definido" (inputs HTML não têm um estado null
-// nativo); a API usa null — só aqui na fronteira se faz a conversão.
+// Form usa '' para "não definido" (sem null nativo em inputs); API usa null.
 function toAccountInput(values: AccountFormValues): AccountInput {
   return {
     name: values.name,
@@ -39,9 +38,7 @@ function toAccountInput(values: AccountFormValues): AccountInput {
   }
 }
 
-// Campos de cartão só fazem sentido para tipos que representam um cartão
-// físico. Plafond é específico de pré-pagos (cartão de crédito neste
-// modelo) — uma conta bancária normal só tem a validade do cartão associado.
+// Plafond só faz sentido para cartões pré-pagos; contas normais só têm validade.
 function showsExpirationField(type: AccountType) {
   return type === 'BANK' || type === 'CREDIT_CARD'
 }

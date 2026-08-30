@@ -42,10 +42,7 @@ class Transaction(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    # `RESTRICT` (não `CASCADE`): apagar uma conta ou categoria com transações
-    # associadas destruiria histórico financeiro em silêncio — ver ARCHITECTURE.md
-    # secção 6/8. O service de accounts/categories traduz o `IntegrityError`
-    # resultante num 409 explícito.
+    # RESTRICT: apagar conta/categoria com transações associadas devolve 409, não cascade.
     account_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("accounts.id", ondelete="RESTRICT"),
@@ -64,16 +61,9 @@ class Transaction(Base):
     amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     description: Mapped[str | None] = mapped_column(String)
     date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
-    # Marca uma despesa como custo do agregado (renda, luz, ...), não só desta
-    # pessoa — ver ARCHITECTURE.md secção 8 ("despesas partilhadas"). Só um
-    # membro do casal precisa de marcar a despesa como partilhada; o dashboard
-    # de agregado usa isto para não a tratar como "gasto pessoal" de mais
-    # ninguém. Sem significado fora de um agregado (fica só a False).
+    # Despesa do agregado (renda, luz, ...); só um membro precisa de marcar.
     is_shared: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    # Um recibo por transação, guardado em disco (`settings.uploads_dir`) com o
-    # próprio id da transação como nome de ficheiro — só o content-type fica
-    # na BD, para servir o `Content-Type` certo sem depender da extensão.
-    # `None` = sem recibo anexado.
+    # Ficheiro fica em disco com o id da transação como nome; None = sem recibo.
     receipt_content_type: Mapped[str | None] = mapped_column(String, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

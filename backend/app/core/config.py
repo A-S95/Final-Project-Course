@@ -19,10 +19,7 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 15
     refresh_token_expire_days: int = 30
 
-    # Relativo ao diretório de trabalho do processo (`/app` no container,
-    # `backend/` em execução local) — ver docker-compose.yml (volume
-    # `uploads_data`) para o disco persistir entre reinícios do container.
-    uploads_dir: str = "uploads"
+    uploads_dir: str = "uploads"  # relativo ao cwd; ver volume uploads_data no compose
 
     @property
     def is_production(self) -> bool:
@@ -31,8 +28,7 @@ class Settings(BaseSettings):
     @field_validator("secret_key")
     @classmethod
     def _secret_key_long_enough(cls, value: str) -> str:
-        # HS256 assina com HMAC-SHA256 — uma chave curta é sempre fraca, em
-        # qualquer ambiente. 32 carateres é o mínimo recomendado pela RFC 7518.
+        # 32 caracteres é o mínimo recomendado pela RFC 7518 para HMAC-SHA256.
         if len(value) < 32:
             raise ValueError(
                 "SECRET_KEY tem de ter pelo menos 32 caracteres. "

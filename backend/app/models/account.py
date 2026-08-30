@@ -32,14 +32,10 @@ class Account(Base):
         Enum(AccountType, name="account_type"), nullable=False
     )
     initial_balance: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0)
-    # Mantido consistente pelo service layer (nunca escrito diretamente por um
-    # request do cliente) — hoje só reflete o `initial_balance`, mas é o campo
-    # que as transações (Fase 5) vão ajustar a cada movimento.
+    # Mantido pelo service layer, nunca escrito diretamente por um request do cliente.
     current_balance: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0)
-    # Validade física do cartão (débito/crédito) — opcional, gera um alerta em
-    # Insights perto da data. `card_plafond` é o teto de saldo esperado de um
-    # cartão pré-pago (ex: "Universo"); se `current_balance` cair abaixo dele,
-    # também gera um alerta. Ambos nulos para contas que não são cartões.
+    # Ambos opcionais, nulos para contas que não são cartões; geram alerta em Insights
+    # perto da validade, ou se current_balance cair abaixo do plafond esperado.
     card_expiration_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     card_plafond: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
     created_at: Mapped[datetime] = mapped_column(

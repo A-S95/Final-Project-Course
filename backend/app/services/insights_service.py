@@ -21,8 +21,7 @@ _SEVERITY_ORDER = {
     InsightSeverity.POSITIVE: 2,
 }
 
-# Janela de aviso antes da validade de um cartão — nem tão cedo que o
-# alerta perca urgência, nem tão tarde que não dê tempo de reagir.
+# Janela de aviso antes da validade de um cartão.
 _CARD_EXPIRATION_WARNING_DAYS = 30
 
 
@@ -50,9 +49,7 @@ def get_insights(
     month: date | None = None,
     today: date | None = None,
 ) -> list[Insight]:
-    # `today` é injetável para os testes conseguirem exercitar as regras que
-    # dependem de "quanto do mês já passou" (o ritmo de gasto de um orçamento).
-    today = today or date.today()
+    today = today or date.today()  # injetável para testar regras de ritmo
     month_start = (month or today).replace(day=1)
     is_current_month = (month_start.year, month_start.month) == (today.year, today.month)
     elapsed = _month_elapsed_fraction(month_start, today)
@@ -63,8 +60,7 @@ def get_insights(
     comparison = analytics_service.get_comparison(db, user_id=user_id, month=month_start)
     budgets = budget_service.list_budgets(db, user_id=user_id, period_month=month_start)
     goals = goal_service.list_goals(db, user_id=user_id) if is_current_month else []
-    # Saldo/validade são estado "agora", não do mês em navegação — só fazem
-    # sentido ao ver o mês atual (mesmo critério usado para os objetivos).
+    # Saldo/validade são estado "agora", só fazem sentido a ver o mês atual.
     accounts = account_service.list_accounts(db, user_id=user_id) if is_current_month else []
 
     insights: list[Insight] = []

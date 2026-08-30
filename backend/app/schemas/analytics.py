@@ -18,9 +18,7 @@ class MonthComparison(BaseModel):
     income_change: Decimal
     expenses_change: Decimal
     net_change: Decimal
-    # Variação percentual face ao mês anterior. `None` quando o mês anterior foi 0
-    # (dividir por zero não tem significado). Rácios de exibição — daí `float`.
-    income_change_pct: float | None
+    income_change_pct: float | None  # None se o mês anterior foi 0
     expenses_change_pct: float | None
 
 

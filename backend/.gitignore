@@ -13,3 +13,9 @@ uv.lock.tmp
 # Recibos anexados a transações — dados do utilizador, não código. Em
 # produção/Docker ficam num volume (uploads_data), não neste diretório.
 /uploads/
+
+# Scripts pontuais (ex: gerar contas de teste/demonstração) — nunca correm em
+# CI nem fazem parte da app, e tocam em dados reais de uma base de dados
+# específica (local ou produção). Local só, tal como as contas de
+# demonstração que geram.
+/scripts/

@@ -16,9 +16,7 @@ class GoalUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=100)
     target_amount: Decimal | None = Field(default=None, gt=0, max_digits=12, decimal_places=2)
     current_amount: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
-    # `deadline` é tratado à parte no service via `model_fields_set`: enviar
-    # `null` limpa o prazo, omitir mantém o atual.
-    deadline: date | None = None
+    deadline: date | None = None  # null limpa o prazo, omitir mantém o atual (model_fields_set)
 
 
 class GoalContribution(BaseModel):
@@ -38,8 +36,6 @@ class GoalRead(BaseModel):
     is_achieved: bool
     deadline_passed: bool  # prazo definido, no passado, e ainda não atingido
     months_until_deadline: int | None
-    # Quanto poupar por mês até ao prazo para atingir o objetivo (arredondado para
-    # cima). Só quando há prazo futuro e o objetivo ainda não foi atingido.
-    required_monthly_contribution: Decimal | None
+    required_monthly_contribution: Decimal | None  # só com prazo futuro e não atingido
     created_at: datetime
     updated_at: datetime

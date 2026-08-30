@@ -10,7 +10,5 @@ def test_health_check_returns_ok() -> None:
     response = client.get("/health")
 
     assert response.status_code == 200
-    # O ambiente reflete `ENVIRONMENT` (ex: "test" no CI, "development" em local)
-    # — não pode ser um literal fixo, ou o teste falha sempre que corre num
-    # ambiente diferente do da máquina onde foi escrito.
+    # Não pode ser literal fixo: ENVIRONMENT varia entre CI e máquina local.
     assert response.json() == {"status": "ok", "environment": settings.environment}

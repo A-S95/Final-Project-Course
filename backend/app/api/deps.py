@@ -30,10 +30,7 @@ def get_current_user(
         payload = decode_access_token(credentials.credentials)
         user_id = uuid.UUID(payload["sub"])
     except (jwt.InvalidTokenError, KeyError, ValueError, TypeError) as exc:
-        # Assinatura inválida/expirada, ou um `sub` em falta/malformado. Só um
-        # token assinado com a nossa chave chega aqui, mas se a chave vazasse (ou
-        # houvesse um bug interno) o modo de falha tem de ser um 401 limpo, nunca
-        # um 500 com stack trace.
+        # Token inválido/expirado ou `sub` malformado: 401 limpo, nunca um 500.
         raise _credentials_error from exc
 
     user = user_repository.get_by_id(db, user_id)

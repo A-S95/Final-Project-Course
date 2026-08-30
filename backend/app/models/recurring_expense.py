@@ -41,8 +41,7 @@ class RecurringExpense(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    # `RESTRICT` (ver ARCHITECTURE.md secção 5) — eliminar a conta/categoria com
-    # despesas recorrentes associadas devolve 409, tal como com transações.
+    # RESTRICT: eliminar conta/categoria com recorrências associadas devolve 409.
     account_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("accounts.id", ondelete="RESTRICT"), nullable=False
     )
@@ -54,9 +53,7 @@ class RecurringExpense(Base):
     frequency: Mapped[RecurringFrequency] = mapped_column(
         Enum(RecurringFrequency, name="recurring_frequency"), nullable=False
     )
-    # Dia "canónico" do mês (1–31). Guardado à parte do `next_occurrence.day` para
-    # não perder o dia 31 quando um mês tem menos dias: fevereiro avança para 28,
-    # mas março volta a 31.
+    # Dia canónico (1-31), à parte de next_occurrence.day: 31/jan -> 28/fev -> 31/mar.
     day_of_month: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     next_occurrence: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)

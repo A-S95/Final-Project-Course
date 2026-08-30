@@ -31,8 +31,7 @@ from app.repositories import refresh_token_repository
 
 configure_logging()
 
-# Uma vez por dia é suficiente para uma app pessoal de baixo volume — não é
-# preciso mais frequência para manter a tabela `refresh_tokens` pequena.
+# Uma vez por dia chega para manter `refresh_tokens` pequena, a esta escala.
 REFRESH_TOKEN_CLEANUP_INTERVAL_SECONDS = 24 * 60 * 60
 
 
@@ -53,21 +52,10 @@ def _cleanup_refresh_tokens_once() -> None:
 
 
 async def _cleanup_refresh_tokens_periodically() -> None:
-    """Tarefa de fundo: apaga refresh tokens expirados a cada 24h.
-
-    Corre no próprio processo (`asyncio.create_task`, sem scheduler externo
-    tipo APScheduler/Celery) — simples o suficiente para não justificar mais
-    uma dependência nesta escala de projeto. Limpa uma vez logo no arranque
-    (útil sobretudo em dev, onde o processo pode ficar dias sem reiniciar) e
-    depois a cada intervalo.
-
-    O trabalho em si (`_cleanup_refresh_tokens_once`) é síncrono — a app usa
-    SQLAlchemy síncrono, não `asyncpg`/`AsyncSession` — por isso corre em
-    `asyncio.to_thread`. Chamá-lo diretamente aqui bloquearia a única thread
-    do event loop durante toda a operação de base de dados: não só esta
-    tarefa ficava presa, a app inteira deixava de responder a pedidos
-    (incluindo `/health`) até a query terminar.
-    """
+    """Tarefa de fundo: apaga refresh tokens expirados a cada 24h, correndo no próprio
+    processo (sem scheduler externo). `asyncio.to_thread` porque o trabalho em si é
+    síncrono (SQLAlchemy síncrono); chamá-lo direto bloquearia o event loop inteiro,
+    incluindo `/health`, até a query terminar."""
     while True:
         await asyncio.to_thread(_cleanup_refresh_tokens_once)
         await asyncio.sleep(REFRESH_TOKEN_CLEANUP_INTERVAL_SECONDS)
@@ -105,11 +93,8 @@ async def rate_limit_handler(request: Request, exc: RateLimitExceeded) -> JSONRe
 
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
-    # Rede de segurança para qualquer exceção que escape aos handlers de
-    # domínio já existentes em cada rota (ver `app/core/exceptions.py`) — nunca
-    # deveria acontecer em funcionamento normal, mas se acontecer isto garante
-    # que fica registado de forma estruturada em vez de só aparecer no stdout
-    # em texto livre, e que o cliente nunca vê um stack trace.
+    # Rede de segurança: nunca devia disparar, mas se disparar regista estruturado
+    # e o cliente nunca vê um stack trace.
     error_logger.error(
         "Exceção não tratada em %s %s: %s",
         request.method,

@@ -46,8 +46,7 @@ class HouseholdMember(Base):
         nullable=False,
         index=True,
     )
-    # UNIQUE (não UNIQUE(household_id, user_id)): garante que um utilizador só
-    # pertence a UM agregado de cada vez — ver ARCHITECTURE.md secção 4.
+    # UNIQUE simples (não composto): um utilizador só pertence a UM agregado de cada vez.
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="CASCADE"),
@@ -65,9 +64,7 @@ class HouseholdMember(Base):
 class HouseholdInvite(Base):
     __tablename__ = "household_invites"
     __table_args__ = (
-        # Índice único parcial: no máximo um convite PENDING para a mesma pessoa no
-        # mesmo agregado. Convites já respondidos (ACCEPTED/DECLINED/CANCELLED) não
-        # contam, por isso é possível voltar a convidar quem recusou.
+        # No máximo um convite PENDING por pessoa/agregado; já respondidos não contam.
         Index(
             "uq_household_invites_one_pending",
             "household_id",
@@ -83,8 +80,7 @@ class HouseholdInvite(Base):
     household_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("households.id", ondelete="CASCADE"), nullable=False
     )
-    # O convite é sempre a um utilizador JÁ registado (o pedido chega com um email,
-    # que o service resolve para `user_id`).
+    # Sempre a um utilizador já registado; o service resolve o email do pedido para user_id.
     invited_user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )

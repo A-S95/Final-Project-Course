@@ -11,8 +11,7 @@ import { useAuth } from '@/features/auth/use-auth'
 const formatEur = (value: number) =>
   new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(value)
 
-/** CTA com a seta a "escapar" no hover — só o suficiente para sentir-se
- * responsivo, sem ser uma animação que se note ao primeiro olhar. */
+// Seta que escapa no hover, subtil, só para sentir-se responsivo.
 function CtaLink({
   to,
   children,
@@ -30,9 +29,7 @@ function CtaLink({
   )
 }
 
-// Assinatura visual da landing: a moeda "assenta" ao carregar a página, como
-// se tivesse acabado de ser lançada ao ar — só acontece uma vez, na primeira
-// impressão, nunca mais se repete durante a navegação.
+// A moeda "assenta" ao carregar a página, uma vez só, nunca se repete.
 function AnimatedLogo() {
   const reduceMotion = useReducedMotion()
 

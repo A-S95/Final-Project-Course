@@ -13,11 +13,7 @@ from app.models.user import User
 
 
 def total_balance(db: Session, user_ids: Sequence[uuid.UUID]) -> Decimal:
-    """Soma dos saldos atuais das contas dos utilizadores dados (estado 'agora').
-
-    `user_ids` tem um único elemento na vista individual e vários na vista de
-    agregado familiar — a query é a mesma, só muda o `IN (...)`.
-    """
+    """Soma dos saldos atuais (estado 'agora') das contas dos utilizadores dados."""
     stmt = select(func.coalesce(func.sum(Account.current_balance), 0)).where(
         Account.user_id.in_(user_ids)
     )
@@ -50,32 +46,18 @@ def expenses_by_category(
     next_month_start: date,
     group_by_name: bool = False,
 ) -> list[Row[tuple[uuid.UUID | str, str, str | None, Decimal, bool, str | None]]]:
-    """Despesas do mês somadas por categoria, ordenadas da maior para a menor.
+    """Despesas do mês somadas por categoria, da maior para a menor. Só `EXPENSE` entra.
 
-    Só `EXPENSE` entra — receitas e transferências não são "gastos por categoria".
-    As duas últimas colunas (`is_shared`, `owner_name`) só se destinam a
-    desambiguar a vista de agregado (ver abaixo) — na vista individual vêm
-    sempre `False`/`None` e o serviço ignora-as.
-
-    `group_by_name`: na vista de agregado, cada pessoa tem a sua própria categoria
-    "Alimentação" (categorias são sempre de um só utilizador). A forma correta de
-    juntar isto depende de a despesa ser partilhada ou não:
-    - **Partilhada** (`is_shared=True`): é o mesmo custo, só registado por mais que
-      uma pessoa (ex: os dois marcam a mesma renda) — funde-se sempre numa única
-      linha, somando os valores, ou a despesa apareceria a dobrar.
-    - **Pessoal** (`is_shared=False`): são despesas independentes que só por
-      coincidência têm o mesmo nome de categoria (ex: cada um paga a sua própria
-      renda a senhorios diferentes, ou têm ambos uma categoria "Lazer" para gastos
-      que nada têm a ver um com o outro) — juntar os valores numa só linha somaria
-      duas despesas não relacionadas como se fossem uma, o que é enganador. Ficam
-      uma linha por pessoa, com `owner_name` a identificar de quem é cada uma.
+    `group_by_name` (vista de agregado, cada pessoa tem a sua própria categoria):
+    despesas partilhadas (`is_shared=True`) fundem-se numa linha só, somando os
+    valores (mesmo custo registado por mais que uma pessoa). Despesas pessoais
+    homónimas (`is_shared=False`) ficam uma linha por pessoa (`owner_name`
+    identifica de quem é) — são gastos independentes, não devem somar-se.
     """
     total = func.sum(Transaction.amount)
 
     if not group_by_name:
-        # Vista individual: `is_shared` não interessa aqui (só desambigua entre
-        # pessoas diferentes na vista de agregado) — uma só linha por categoria,
-        # como sempre, com valores constantes nas duas colunas extra.
+        # Vista individual: uma linha por categoria, `is_shared`/`owner_name` fixos.
         stmt = (
             select(
                 Category.id,
@@ -97,19 +79,11 @@ def expenses_by_category(
         )
         return list(db.execute(stmt).all())
 
-    # `person_key`: `NULL` para despesas partilhadas (todas as pessoas caem no
-    # mesmo grupo, sejam quem forem — é isso que as funde), o `user_id` para
-    # despesas pessoais (cada pessoa fica no seu próprio grupo, mesmo com o
-    # mesmo nome de categoria que outra).
+    # NULL funde todas as partilhadas num grupo só; user_id separa as pessoais por pessoa.
     person_key = case((Transaction.is_shared.is_(True), None), else_=Transaction.user_id)
-    # Postgres não tem min() nativo para UUID — passa por texto e volta a
-    # UUID (o Pydantic aceita a string na resposta na mesma).
-    id_col = func.min(cast(Category.id, String))
+    id_col = func.min(cast(Category.id, String))  # Postgres não tem min() nativo p/ UUID
     color_col = func.min(Category.color)
-    # Dentro de um grupo pessoal há sempre um só utilizador, por isso `min` só
-    # escolhe entre valores iguais; num grupo partilhado o nome não se usa
-    # (o serviço ignora-o quando `is_shared` é verdadeiro).
-    owner_col = func.min(User.name)
+    owner_col = func.min(User.name)  # grupo pessoal só tem 1 utilizador; partilhada ignora isto
     stmt = (
         select(id_col, Category.name, color_col, total, Transaction.is_shared, owner_col)
         .join(Category, Transaction.category_id == Category.id)

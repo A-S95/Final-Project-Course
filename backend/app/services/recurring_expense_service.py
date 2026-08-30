@@ -16,9 +16,8 @@ from app.repositories import recurring_expense_repository
 from app.schemas.recurring_expense import RecurringExpenseRead, RecurringRunResult
 from app.services import account_service, category_service, transaction_service
 
-# Rede de segurança: no máximo isto de ocorrências geradas por recorrência numa
-# só invocação (~10 anos de mensalidades) — protege contra um `next_occurrence`
-# muito no passado por erro.
+# Rede de segurança: máximo de ocorrências por invocação (~10 anos de mensalidades),
+# caso `next_occurrence` fique muito no passado por erro.
 _MAX_CATCH_UP = 120
 
 
@@ -190,9 +189,7 @@ def generate_due(
             db, user_id=user_id, category_id=recurring.category_id
         )
         if category.type != CategoryType.EXPENSE:
-            # Estado inconsistente (a categoria mudou de tipo depois de criada a
-            # recorrência) — não geramos nada; fica visível como "em atraso".
-            continue
+            continue  # categoria mudou de tipo depois de criada a recorrência
 
         iterations = 0
         while recurring.next_occurrence <= today and iterations < _MAX_CATCH_UP:

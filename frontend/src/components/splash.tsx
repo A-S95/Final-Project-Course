@@ -1,11 +1,7 @@
 import { motion, useReducedMotion } from 'motion/react'
 import { LogoMark } from '@/components/logo'
 
-// Usado nos dois momentos reais de espera da app: a verificação de sessão no
-// arranque (AuthProvider/ProtectedRoute) e o carregamento de uma rota lazy
-// (Suspense em App.tsx) — substitui o antigo texto simples "A carregar...".
-// A moeda "gira" enquanto se espera — motivo óbvio para animação contínua
-// (ao contrário de um flip-in de uma vez só, aqui há mesmo algo a decorrer).
+// Verificação de sessão no arranque e carregamento de rota lazy (Suspense).
 export function Splash() {
   const reduceMotion = useReducedMotion()
 
@@ -23,10 +19,7 @@ export function Splash() {
   )
 }
 
-// Igual à Splash, mas para dentro da área de conteúdo do AppShell (a
-// navegação em si — sidebar, topo — já lá está montada e não deve
-// desaparecer nem piscar; só o conteúdo por baixo precisa de um indicador
-// enquanto uma rota lazy ainda não carregou pela primeira vez).
+// Como a Splash, mas só na área de conteúdo: a sidebar do AppShell não deve piscar.
 export function ContentSpinner() {
   const reduceMotion = useReducedMotion()
 

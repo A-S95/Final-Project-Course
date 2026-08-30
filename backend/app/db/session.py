@@ -5,9 +5,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.config import settings
 
-# `pool_pre_ping`: testa cada ligação com um SELECT trivial antes de a usar, para
-# não rebentar com "connection already closed" se o Postgres reiniciar entretanto
-# (ex: `docker compose restart postgres`) e uma ligação do pool ficar velha.
+# pool_pre_ping: evita "connection already closed" se o Postgres reiniciar entretanto.
 engine = create_engine(settings.database_url, pool_pre_ping=True)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

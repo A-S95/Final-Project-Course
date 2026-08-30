@@ -89,10 +89,8 @@ def delete_category(
             raise InvalidCategoryReassignError(
                 "A categoria de destino tem de ser do mesmo tipo (receita/despesa)."
             )
-        # Só as transações são reatribuídas — orçamentos e despesas recorrentes
-        # continuam a bloquear a eliminação (ver exceção abaixo), porque mover
-        # cada um teria de lidar com colisões no UNIQUE(user, categoria, mês) dos
-        # orçamentos, que não vale a pena resolver para um caso de uso secundário.
+        # Só transações são reatribuídas; orçamentos/recorrentes continuam a
+        # bloquear a eliminação (colisões no UNIQUE de orçamentos, caso secundário).
         transaction_repository.reassign_category(
             db, user_id=user_id, from_category_id=category_id, to_category_id=target.id
         )
@@ -101,9 +99,6 @@ def delete_category(
     try:
         db.flush()
     except IntegrityError as exc:
-        # FK ON DELETE RESTRICT de `transactions` (Fase 5), `budgets` (Fase 8) ou
-        # `recurring_expenses` (Fase 9) — a categoria está a ser usada. `rollback()`
-        # desfaz só até ao savepoint mais recente (ver tests/conftest.py), deixando a
-        # sessão utilizável.
+        # FK RESTRICT de transactions/budgets/recurring_expenses: categoria em uso.
         db.rollback()
         raise CategoryInUseError from exc

@@ -269,14 +269,8 @@ def test_dashboard_household_scope_aggregates_all_members(client: TestClient) ->
     assert household["scope"] == "household"
     assert household["total_expenses"] == "65.00"
     assert household["total_balance"] == "85.00"
-    # As duas categorias "Comida" (uma de cada membro) são despesas pessoais
-    # (`is_shared` por omissão é `False`) que só por coincidência têm o mesmo
-    # nome — cada uma paga a sua própria comida, não é um custo partilhado.
-    # Ficam em duas linhas separadas, uma por pessoa, identificadas por
-    # `owner_name` — juntá-las numa só somaria duas despesas independentes
-    # como se fossem uma, o que seria enganador (ver
-    # test_dashboard_household_merges_shared_expenses_with_same_category_name
-    # para o caso em que devem mesmo fundir-se).
+    # Duas "Comida" pessoais (is_shared=False) homónimas ficam separadas por owner_name,
+    # não somadas (ver test_..._merges_shared_expenses... para o caso que funde).
     breakdown = household["expenses_by_category"]
     assert {(row["name"], row["owner_name"], row["total"]) for row in breakdown} == {
         ("Comida", "Antonio", "40.00"),

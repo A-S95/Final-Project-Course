@@ -9,12 +9,8 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 
-// Reconhece marcas comuns em despesas recorrentes portuguesas pelo nome dado
-// pelo utilizador (não há integração real com nenhuma marca — é só um ícone
-// genérico da categoria, pintado com a cor mais associada a cada marca, para
-// reconhecimento rápido no painel). Sem logótipos reais: evita reproduzir
-// marcas registadas, e um ícone genérico + cor já chega para o objetivo aqui
-// (ver "à primeira vista, de que empresa é isto").
+// Reconhece marcas comuns pelo nome dado pelo utilizador. Sem logótipos reais
+// (direitos de autor): só um ícone genérico pintado com a cor da marca.
 type MerchantBadge = { icon: LucideIcon; color: string }
 
 const MERCHANT_PATTERNS: Array<{ pattern: RegExp; badge: MerchantBadge }> = [

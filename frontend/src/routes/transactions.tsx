@@ -242,8 +242,7 @@ function formatMoney(value: string, currency: string) {
   return new Intl.NumberFormat('pt-PT', { style: 'currency', currency }).format(Number(value))
 }
 
-// Emoji da categoria (já escolhido pelo utilizador em Categorias) num círculo
-// da cor da categoria — sem categoria (transferência), um ícone genérico.
+// Sem categoria (transferência) usa um ícone genérico em vez do emoji.
 function CategoryBadge({ category, type }: { category: Category | null; type: Transaction['type'] }) {
   if (type === 'TRANSFER' || !category) {
     return (
@@ -360,9 +359,7 @@ function ReceiptSection({ transaction }: { transaction: Transaction }) {
     enabled: hasReceipt,
   })
 
-  // Um recibo é protegido (não dá para pôr direto num <img src>, ver
-  // api/client.ts) — busca-se como blob e cria-se um object URL local, que
-  // tem de ser revogado quando deixar de ser preciso ou muda de recibo.
+  // Recibo protegido (sem <img src> direto, ver api/client.ts): busca-se como blob.
   useEffect(() => {
     if (!blob) {
       setObjectUrl(null)
@@ -636,12 +633,8 @@ function TransactionDetailPanel({
   )
 }
 
-// Modal (não painel encaixado na página) de propósito: com a lista já
-// percorrida a scroll, um painel inserido no fluxo normal da página aparecia
-// lá no topo — o utilizador tinha de subir tudo para o ver. Um overlay fixo
-// ao ecrã aparece sempre por cima do que já estava visível, sem mexer no
-// scroll, e fecha ao clicar fora ou na cruz, devolvendo exatamente à mesma
-// posição de onde nunca saiu.
+// Modal, não painel encaixado: um painel no fluxo normal da página aparecia
+// fora do scroll atual quando a lista já ia longa.
 function TransactionDetailModal({
   transaction,
   accounts,
@@ -708,16 +701,8 @@ export function TransactionsPage() {
   const reduceMotion = useReducedMotion()
   const location = useLocation()
 
-  // Chegar aqui com `state.prefillTransaction` (ex: botão "Recarregar
-  // plafond" num cartão de conta, ver features/accounts/card-status.tsx)
-  // abre logo o formulário de criação com esses valores. Capturado uma única
-  // vez no arranque (inicializador "lazy") — o `useEffect` a seguir limpa o
-  // `state` da ENTRADA DE HISTÓRICO diretamente (não via `navigate()`, que
-  // dispara uma nova navegação reativa e, dentro da árvore de
-  // AnimatePresence/Suspense do ProtectedRoute, chegou a repor este
-  // componente ao estado inicial — o formulário fechava sozinho um instante
-  // depois de abrir). `history.replaceState` só corrige o que fica guardado
-  // para um "recuar" do browser ou um refresh, sem re-renderizar nada.
+  // state.prefillTransaction (botão "Recarregar plafond") abre o form já preenchido.
+  // Limpa via history.replaceState, não navigate(): isso chegou a repor o componente.
   const [prefillValues] = useState<Partial<TransactionFormValues> | null>(
     () => (location.state as TransactionsLocationState | null)?.prefillTransaction ?? null,
   )
@@ -732,20 +717,13 @@ export function TransactionsPage() {
   }, [prefillValues])
 
   const [isCreating, setIsCreating] = useState(() => Boolean(prefillValues))
-  // O painel da direita mostra no máximo uma coisa de cada vez: o form de
-  // criação OU o detalhe de uma transação selecionada na lista — nunca os
-  // dois. Selecionar uma linha fecha a criação e vice-versa.
+  // Painel da direita mostra só uma coisa de cada vez: criação OU detalhe.
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  // Fechados por omissão em ecrãs pequenos (o mês atual já filtra o essencial
-  // e os filtros ocupam bastante altura antes de se ver alguma transação),
-  // abertos em desktop, onde sobra espaço. Só decide no arranque — não segue
-  // o ecrã a redimensionar depois.
+  // Fechados por omissão em ecrãs pequenos, abertos em desktop; não segue resize.
   const [filtersOpen, setFiltersOpen] = useState(() => window.matchMedia('(min-width: 1024px)').matches)
 
-  // Por omissão só o mês atual — sem isto, uma conta com um ano de histórico
-  // carrega e renderiza centenas de linhas de uma vez (chegou a dar páginas
-  // de 16 000px). O botão "Ver todas" abaixo continua a dar acesso ao
-  // histórico completo para quem precisar.
+  // Só o mês atual por omissão — uma conta com um ano de histórico chegou a
+  // renderizar páginas de 16 000px de uma vez. "Ver todas" dá acesso ao resto.
   const thisMonth = useMemo(() => startOfMonth(new Date()), [])
   const [monthCursor, setMonthCursor] = useState(thisMonth)
   const [showingAll, setShowingAll] = useState(false)
@@ -809,13 +787,11 @@ export function TransactionsPage() {
   const accountsList = accounts ?? []
   const categoriesList = categories ?? []
   const canCreate = accountsList.length > 0
-  // Procurado de novo em cada render (não guardado à parte) — assim qualquer
-  // mutação que invalide ['transactions'] (editar, apagar, anexar recibo)
-  // atualiza o painel aberto automaticamente, sem ficar com uma cópia antiga.
+  // Procurado a cada render, não guardado à parte, para o painel aberto
+  // refletir sozinho qualquer mutação que invalide ['transactions'].
   const selectedTransaction = transactions?.find((t) => t.id === selectedId) ?? null
 
-  // Grupos por dia, na mesma ordem em que a API já devolve (mais recente
-  // primeiro) — não é preciso reordenar, só juntar consecutivos do mesmo dia.
+  // API já devolve por data decrescente — só junta consecutivos do mesmo dia.
   const transactionGroups = useMemo(() => {
     const groups: { date: string; items: Transaction[] }[] = []
     for (const transaction of transactions ?? []) {
@@ -828,8 +804,7 @@ export function TransactionsPage() {
     }
     return groups
   }, [transactions])
-  // Só os filtros opcionais contam — o intervalo de datas está sempre
-  // definido (mês atual por omissão) e não é isso que o badge quer sinalizar.
+  // Só os filtros opcionais contam (o intervalo de datas está sempre definido).
   const activeFilterCount = [filters.account_id, filters.category_id, filters.type].filter(
     Boolean,
   ).length

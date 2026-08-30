@@ -1,10 +1,7 @@
 import { motion, useReducedMotion } from 'motion/react'
 import type { ReactNode } from 'react'
 
-// Cabeçalho comum a todas as páginas internas — título + subtítulo opcional
-// + zona de ações à direita (ex: botão principal da página). A navegação
-// (voltar/trocar de secção) e o alternador de tema já vivem no `AppShell`
-// (barra lateral), por isso este cabeçalho já não precisa de os repetir.
+// Título + subtítulo opcional + ações à direita; navegação e tema já vivem no AppShell.
 export function PageHeader({
   title,
   subtitle,

@@ -30,22 +30,8 @@ async function doRefresh(): Promise<AuthResponse | null> {
   return body
 }
 
-/**
- * Tenta renovar a sessão a partir do refresh token no cookie httpOnly.
- * Chamada tanto no arranque da app (para saber se já havia sessão) como
- * automaticamente quando um pedido falha com 401 por o access token ter
- * expirado (~15 min).
- *
- * O refresh token é rodado a cada uso (o backend revoga o antigo e emite um
- * novo) e trata reutilização de um token já rodado como possível roubo,
- * revogando toda a sessão. Sem este cache, duas chamadas concorrentes (ex:
- * StrictMode a invocar o useEffect duas vezes, ou vários pedidos em paralelo
- * a apanhar 401 ao mesmo tempo por o access token ter expirado) disparariam
- * dois pedidos de refresh com o mesmo cookie — o segundo usaria um token que
- * o primeiro já tinha rodado, acionando essa deteção e terminando a sessão à
- * força. Partilhar a mesma promise entre chamadas concorrentes garante que só
- * um pedido de refresh chega ao backend de cada vez.
- */
+// O backend trata reutilização de refresh token como roubo; esta promise partilhada
+// evita que chamadas concorrentes disparem dois refreshes com o mesmo cookie.
 export function refreshSession(): Promise<AuthResponse | null> {
   if (!inFlightRefresh) {
     inFlightRefresh = doRefresh().finally(() => {
@@ -62,8 +48,7 @@ type RequestOptions = {
   skipAuthRetry?: boolean
 }
 
-/** Base comum a `request` (JSON) e aos dois helpers de ficheiros abaixo —
- * token + renovação em 401 num só sítio, para não duplicar essa dança. */
+// Base comum a `request` e aos helpers de ficheiros: token + renovação em 401 num só sítio.
 async function authedFetch(
   path: string,
   init: RequestInit,
@@ -113,8 +98,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   return (await response.json()) as T
 }
 
-/** Upload multipart — nunca definir Content-Type à mão, o browser trata do
- * boundary sozinho quando o body é um FormData. */
+// Nunca definir Content-Type à mão: o browser trata do boundary com FormData.
 async function uploadFile<T>(path: string, file: File): Promise<T> {
   const formData = new FormData()
   formData.append('file', file)
@@ -127,10 +111,8 @@ async function uploadFile<T>(path: string, file: File): Promise<T> {
   return (await response.json()) as T
 }
 
-/** Ficheiros protegidos (ex: recibos) não podem ir num `<img src>` direto —
- * um pedido de imagem do browser não leva o header Authorization. Busca-se
- * como blob autenticado e cria-se um object URL local (ver `URL.revokeObjectURL`
- * do lado de quem chama, quando a imagem deixar de ser precisa). */
+// <img src> direto não leva Authorization; busca-se como blob autenticado
+// (quem chama deve fazer URL.revokeObjectURL depois de usar).
 async function fetchBlob(path: string): Promise<Blob> {
   const response = await authedFetch(path, { method: 'GET' })
   if (!response.ok) {

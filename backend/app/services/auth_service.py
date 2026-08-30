@@ -51,15 +51,11 @@ def refresh_tokens(db: Session, *, refresh_token: str) -> tuple[User, str, str]:
         raise InvalidRefreshTokenError
 
     if stored.revoked:
-        # O token existe mas já foi rodado — alguém está a reutilizar um token
-        # antigo. Assume-se roubo e revoga-se TODA a família de tokens deste
-        # utilizador, obrigando a novo login em todo o lado.
+        # Token já rodado a ser reutilizado: assume-se roubo, revoga toda a família.
         refresh_token_repository.revoke_all_for_user(db, stored.user_id)
         raise InvalidRefreshTokenError
 
-    # Rotação: o refresh token usado é sempre revogado, mesmo que o utilizador
-    # entretanto tenha sido apagado — impede reutilização (replay).
-    refresh_token_repository.revoke(db, stored)
+    refresh_token_repository.revoke(db, stored)  # rotação: impede reutilização (replay)
 
     user = user_repository.get_by_id(db, stored.user_id)
     if user is None:

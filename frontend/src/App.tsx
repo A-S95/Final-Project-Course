@@ -6,10 +6,7 @@ import { Splash } from '@/components/splash'
 import { AuthProvider } from '@/features/auth/auth-context'
 import { ProtectedRoute } from '@/routes/protected-route'
 
-// Uma página por chunk: nenhuma rota carrega o código (nem as dependências
-// só suas, como o Recharts do dashboard/histórico) de todas as outras. Os
-// exports nomeados (não default) exigem o `.then` a remapear para `default`
-// — é o próprio React.lazy que impõe esse formato.
+// Uma página por chunk. `.then` remapeia export nomeado para `default`, que React.lazy exige.
 const LoginPage = lazy(() => import('@/routes/login').then((m) => ({ default: m.LoginPage })))
 const RegisterPage = lazy(() =>
   import('@/routes/register').then((m) => ({ default: m.RegisterPage })),
@@ -46,9 +43,7 @@ const SettingsPage = lazy(() =>
   import('@/routes/settings').then((m) => ({ default: m.SettingsPage })),
 )
 
-// Só as rotas públicas (sem sidebar) usam esta transição de página inteira —
-// as protegidas têm a sua própria, mais local, dentro do <ProtectedRoute/>
-// (ver routes/protected-route.tsx), para a navegação lateral nunca desmontar.
+// Só rotas públicas: as protegidas têm a sua própria transição, mais local, em ProtectedRoute.
 function PublicPageTransition({ children }: { children: ReactNode }) {
   const location = useLocation()
   const reduceMotion = useReducedMotion()

@@ -1,6 +1,4 @@
-// ISO 4217, restrito às moedas com suporte de formatação testado na UI
-// (Intl.NumberFormat aceita qualquer código de 3 letras — esta lista é só
-// para o seletor, não uma validação; o backend aceita qualquer código válido).
+// Lista para o seletor, não validação — o backend aceita qualquer código ISO 4217.
 export const CURRENCIES = ['EUR', 'USD', 'GBP', 'BRL', 'CHF'] as const
 export type Currency = (typeof CURRENCIES)[number]
 export const CURRENCY_LABELS: Record<Currency, string> = {
@@ -16,8 +14,7 @@ export type User = {
   email: string
   name: string
   currency: string
-  // Decimal do backend chega sempre como string (Pydantic v2 serializa
-  // Decimal para string em JSON, não para number — nunca perder precisão).
+  // Decimal do backend chega sempre como string (Pydantic v2 não usa number, por precisão).
   monthly_income: string | null
 }
 

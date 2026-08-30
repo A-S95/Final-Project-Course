@@ -1,6 +1,4 @@
-/** Utilitários de navegação por mês — partilhados pelo dashboard (Fase 6) e pelos
- * orçamentos (Fase 8). Sempre em hora local (nunca `toISOString`, que converte
- * para UTC e pode saltar um dia perto da meia-noite). */
+// Sempre em hora local, nunca toISOString (converte para UTC, pode saltar um dia).
 
 export function startOfMonth(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), 1)
@@ -62,8 +60,7 @@ export function daysUntil(iso: string): number {
   return Math.round((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
 }
 
-/** "2026-08-29" -> "Hoje" / "Ontem" / "25 de agosto" (ano só se não for o
- * atual) — para agrupar listas por dia, tipo extrato bancário. */
+/** "2026-08-29" -> "Hoje" / "Ontem" / "25 de agosto" (ano só se não for o atual). */
 export function dayGroupLabel(iso: string): string {
   const diff = daysUntil(iso)
   if (diff === 0) return 'Hoje'
