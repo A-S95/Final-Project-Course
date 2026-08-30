@@ -33,7 +33,12 @@ def _set_refresh_cookie(response: Response, token: str) -> None:
         # TLS, deixava de o reenviar em pedidos seguintes — os testes de
         # rotação de refresh token apanhavam sempre 401 nesse ambiente.
         secure=settings.is_production,
-        samesite="lax",
+        # "none" em produção: frontend (Vercel) e backend (Render) vivem em
+        # domínios diferentes, e um cookie "lax" nunca é enviado em pedidos
+        # entre sites diferentes (só entre portas do mesmo site, como em dev
+        # local — daí isto nunca ter aparecido antes). "none" exige Secure,
+        # por isso só em produção, a par do `secure` acima.
+        samesite="none" if settings.is_production else "lax",
         path=REFRESH_COOKIE_PATH,
         max_age=settings.refresh_token_expire_days * 24 * 60 * 60,
     )
