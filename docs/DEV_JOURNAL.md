@@ -8,9 +8,9 @@
 
 ## Estado atual (ler isto primeiro ao retomar o projeto)
 
-*Atualizado em: 2026-08-29*
+*Atualizado em: 2026-08-30*
 
-**Resumo de 30 segundos para retomar amanhã**: **Mudei a identidade visual da app — de violeta/teal para "Oliva" (verde profundo + âmbar raro)**, escolhida entre três opções que pré-visualizei antes de decidir. Apliquei a sério em `index.css` (tokens `--accent`/`--accent-strong`/`--accent-soft`, mais `--accent-teal` renomeado para `--accent-amber`) — propaga-se sozinho a toda a app via Tailwind. Redesenhei o logótipo para a nova paleta (C verde, moeda âmbar). Ver entrada "Nova paleta de marca: Oliva". **Dei aos cartões pré-pagos abaixo do plafond (ex: Universo) um botão "Recarregar plafond"** que abre Transações já com o formulário de criação preenchido (conta, tipo, valor em falta) — apanhei pelo caminho um bug real de navegação (`navigate()` dentro de um `useEffect`, a interagir mal com o `AnimatePresence` do `ProtectedRoute`, fechava o formulário sozinho um instante depois de abrir). Ver entrada "Recarregar plafond nos cartões pré-pagos". **Reordenei o painel principal em mobile** — Insights e Próximos pagamentos (urgente) sobem para logo a seguir aos cartões de saldo; Despesas por categoria e Objetivos (para explorar com calma) passam a um separador simples mais abaixo, em vez de mais scroll. Desktop inalterado. Ver entrada "Painel principal: ordem diferente em mobile". **Fechei o logótipo definitivo da marca** — um "C" com um gráfico de crescimento e uma moeda desenhados dentro (baseado num style guide que tinha, `logotipostyle.png`), a substituir a moeda genérica de antes, em todos os sítios onde a marca aparece (sidebar, splash, landing, login, registo, favicon). Ver entrada "Logótipo definitivo: o C com o gráfico dentro". **Fiz a lista de Transações agrupar por dia (Hoje/Ontem/...), clicar numa transação abre um MODAL de detalhe (conta, categoria, data, recibo) — não um painel embutido na página (esse tinha um bug real em mobile: abria no topo, fora do scroll atual) —, e dá para anexar um recibo (foto/PDF) a uma transação** — guardado em disco num volume novo (`uploads_data`), servido só ao dono via endpoint autenticado, nunca por URL pública. **python-multipart é a primeira dependência nova do projeto**. Ver entrada "Transações agrupadas por dia, painel de detalhe e recibos anexados". **Rebatizei o projeto para "CentiSible"** (era "FinTrack", mudei em 2026-08-29, com logo novo — uma moeda com "¢" — animado onde faz sentido; ver entrada "Rebatizado para CentiSible"). Dei ao painel principal "CentiSible Insights" (renomeado de "Alertas do mês") e um cartão "Próximos pagamentos" com crachás de marca genéricos (sem logótipos reais, só ícone+cor por questão de direitos de autor), layout 2×2 simétrico inspirado num mockup que tinha (`exemplo.png`), e resolvi a navegação entre páginas a "piscar" — a sidebar já não remonta a cada clique (rota de layout do React Router) e o React Query mantém os dados antigos visíveis durante um refetch (`keepPreviousData`) em vez de esvaziar o ecrã (ver entrada "CentiSible Insights, Próximos pagamentos e navegação sem piscar"). Backend tudo feito e a passar, **CI incluído — os 6 jobs do GitHub Actions estão todos verdes** (ver entrada "Primeira corrida real do CI"). Fiz uma ronda grande de trabalho no frontend ("elegante, chamativo, boas animações" era o objetivo) — navegação lateral persistente, números animados, layout a duas colunas nas páginas de lista, um bug real de flexbox (`mx-auto` sem `w-full` fazia o `max-w` nunca ter efeito), Objetivos no painel, cards de saldo por conta no painel + validade/plafond de cartões com alertas em Insights, e (o mais importante fora de UI) **um bug de correção de dados**: a fusão de "Despesas por categoria" no agregado familiar fundia por nome cegamente — corrigi para só fundir despesas de facto marcadas `is_shared`, mantendo despesas pessoais homónimas separadas por pessoa (`owner_name`). Ver a sequência de entradas de hoje, mais recente no topo de cada bloco. **Repus as contas de demonstração do zero** com um ano de dados novo, incluindo renda partilhada com valores diferentes por pessoa (500€/300€) para provar que a fusão soma correto independentemente da divisão; a conta "Universo" tem agora plafond 1000€ + validade próxima para demonstrar o novo alerta. **Ainda por fazer, se eu continuar**: landing/login não foram revistas nesta ronda de frontend. 231 testes backend + 9 E2E a passar. A app está a correr agora (`docker compose up -d` já ativo — 3 containers `healthy`, imagens do frontend e do backend reconstruídas para o `index.html` novo e o `python-multipart` refletirem).
+**Resumo de 30 segundos para retomar amanhã**: **Dei uma limpeza a este diário** — estava a escrever como se fosse outra pessoa a pedir-me coisas, agora lê-se como eu próprio a contar o que fiz. **Transformei isto numa PWA** (manifest, ícones, service worker) — instalação testada e confirmada no Chrome e no Edge do PC. Ver entrada de hoje "PWA: manifest, ícones e service worker". **Em aberto para amanhã**: decidir e fazer o deploy (Vercel para o frontend, Fly.io para o backend+Postgres) e só depois testar a instalação a sério num telemóvel — precisa de HTTPS público, não dá para testar isso só em `localhost`. Ver entrada de hoje "Devia isto ser uma app?" com o raciocínio da escolha de alojamento. **Mudei a identidade visual da app — de violeta/teal para "Oliva" (verde profundo + âmbar raro)**, escolhida entre três opções que pré-visualizei antes de decidir. Apliquei a sério em `index.css` (tokens `--accent`/`--accent-strong`/`--accent-soft`, mais `--accent-teal` renomeado para `--accent-amber`) — propaga-se sozinho a toda a app via Tailwind. Redesenhei o logótipo para a nova paleta (C verde, moeda âmbar). Ver entrada "Nova paleta de marca: Oliva". **Dei aos cartões pré-pagos abaixo do plafond (ex: Universo) um botão "Recarregar plafond"** que abre Transações já com o formulário de criação preenchido (conta, tipo, valor em falta) — apanhei pelo caminho um bug real de navegação (`navigate()` dentro de um `useEffect`, a interagir mal com o `AnimatePresence` do `ProtectedRoute`, fechava o formulário sozinho um instante depois de abrir). Ver entrada "Recarregar plafond nos cartões pré-pagos". **Reordenei o painel principal em mobile** — Insights e Próximos pagamentos (urgente) sobem para logo a seguir aos cartões de saldo; Despesas por categoria e Objetivos (para explorar com calma) passam a um separador simples mais abaixo, em vez de mais scroll. Desktop inalterado. Ver entrada "Painel principal: ordem diferente em mobile". **Fechei o logótipo definitivo da marca** — um "C" com um gráfico de crescimento e uma moeda desenhados dentro (baseado num style guide que tinha, `logotipostyle.png`), a substituir a moeda genérica de antes, em todos os sítios onde a marca aparece (sidebar, splash, landing, login, registo, favicon). Ver entrada "Logótipo definitivo: o C com o gráfico dentro". **Fiz a lista de Transações agrupar por dia (Hoje/Ontem/...), clicar numa transação abre um MODAL de detalhe (conta, categoria, data, recibo) — não um painel embutido na página (esse tinha um bug real em mobile: abria no topo, fora do scroll atual) —, e dá para anexar um recibo (foto/PDF) a uma transação** — guardado em disco num volume novo (`uploads_data`), servido só ao dono via endpoint autenticado, nunca por URL pública. **python-multipart é a primeira dependência nova do projeto**. Ver entrada "Transações agrupadas por dia, painel de detalhe e recibos anexados". **Rebatizei o projeto para "CentiSible"** (era "FinTrack", mudei em 2026-08-29, com logo novo — uma moeda com "¢" — animado onde faz sentido; ver entrada "Rebatizado para CentiSible"). Dei ao painel principal "CentiSible Insights" (renomeado de "Alertas do mês") e um cartão "Próximos pagamentos" com crachás de marca genéricos (sem logótipos reais, só ícone+cor por questão de direitos de autor), layout 2×2 simétrico inspirado num mockup que tinha (`exemplo.png`), e resolvi a navegação entre páginas a "piscar" — a sidebar já não remonta a cada clique (rota de layout do React Router) e o React Query mantém os dados antigos visíveis durante um refetch (`keepPreviousData`) em vez de esvaziar o ecrã (ver entrada "CentiSible Insights, Próximos pagamentos e navegação sem piscar"). Backend tudo feito e a passar, **CI incluído — os 6 jobs do GitHub Actions estão todos verdes** (ver entrada "Primeira corrida real do CI"). Fiz uma ronda grande de trabalho no frontend ("elegante, chamativo, boas animações" era o objetivo) — navegação lateral persistente, números animados, layout a duas colunas nas páginas de lista, um bug real de flexbox (`mx-auto` sem `w-full` fazia o `max-w` nunca ter efeito), Objetivos no painel, cards de saldo por conta no painel + validade/plafond de cartões com alertas em Insights, e (o mais importante fora de UI) **um bug de correção de dados**: a fusão de "Despesas por categoria" no agregado familiar fundia por nome cegamente — corrigi para só fundir despesas de facto marcadas `is_shared`, mantendo despesas pessoais homónimas separadas por pessoa (`owner_name`). Ver a sequência de entradas de hoje, mais recente no topo de cada bloco. **Repus as contas de demonstração do zero** com um ano de dados novo, incluindo renda partilhada com valores diferentes por pessoa (500€/300€) para provar que a fusão soma correto independentemente da divisão; a conta "Universo" tem agora plafond 1000€ + validade próxima para demonstrar o novo alerta. **Ainda por fazer, se eu continuar**: landing/login não foram revistas nesta ronda de frontend. 231 testes backend + 9 E2E a passar. A app está a correr agora (`docker compose up -d` já ativo — 3 containers `healthy`, imagens do frontend e do backend reconstruídas para o `index.html` novo e o `python-multipart` refletirem).
 
 **Fase em curso**: **Roadmap principal (Fases 0–16) concluído**, mais adições ao longo de várias sessões (contas de demonstração, despesas partilhadas, reformulação visual partes 1+2, rate limiting/logging/cleanup, seletor de ícone/cor de categoria, CI validado, revamp geral do frontend interno, correção da fusão de despesas do agregado) — ver entradas datadas abaixo. `ruff`/`oxlint`/`build` limpos.
 
@@ -54,6 +54,34 @@ cd frontend && npm run test:e2e            # 9 passed (precisa do docker compose
 **Nova funcionalidade planeada — Households (agregado familiar)**: adicionei ao roadmap como Fase 7 (a seguir ao Dashboard v1). Ver `ARCHITECTURE.md` secções 2, 4, 5 e 8 para o desenho completo.
 
 **Onde está tudo**: projeto em `C:\Users\anton\Desktop\Projeto final\` — `backend/` (FastAPI), `frontend/` (React/Vite), `docs/ARCHITECTURE.md` (arquitetura/ERD/roadmap), este ficheiro (`docs/DEV_JOURNAL.md`, decisões e histórico).
+
+---
+
+## 2026-08-30 — PWA: manifest, ícones e service worker
+
+Segui o plano da entrada anterior de hoje: PWA primeiro, porque não depende de decidir onde alojar. Usei o `vite-plugin-pwa` (gera o manifest e o service worker a partir de config no `vite.config.ts`, em vez de escrever isso à mão) — primeira dependência nova desde o `python-multipart`.
+
+**Ícones**: a marca já estava pronta (o "C com o gráfico e a moeda" do `favicon.svg`), só faltava gerar os tamanhos que uma PWA exige — 192×192 e 512×512 normais, mais uma versão "maskable" (a marca ocupa só ~55% do canvas, com fundo branco sólido, para sobreviver ao recorte em círculo/squircle que o Android aplica) e um `apple-touch-icon` (também fundo sólido — o iOS lida mal com PNGs transparentes, mete-lhes fundo preto). Não tinha nenhuma ferramenta de conversão SVG→PNG instalada nesta máquina (sem ImageMagick/Inkscape), por isso instalei o `sharp` com `--no-save` só para correr um script (`frontend/scripts/generate-pwa-icons.mjs`, fica no repo para se a marca voltar a mudar) e não entrou no `package.json` — é uma ferramenta de um só uso, não uma dependência da app.
+
+**Decisão sobre cache da API**: como isto é uma app de finanças, era importante que o service worker nunca mostrasse saldos ou transações desatualizados a fazer-se passar por dados reais. Por omissão o `generateSW` só faz precache dos ficheiros do build (JS/CSS/ícones) e nem sequer intercetava os pedidos à API (API noutra origem — porta diferente em dev, domínio diferente em produção). Mesmo assim, tornei isso explícito com uma regra `runtimeCaching` a apanhar tudo o que bate em `/api/` e a forçar `NetworkOnly` — não é preciso confiar num comportamento por omissão implícito, fica escrito e é fácil de explicar na defesa.
+
+**`theme-color` estava desatualizado**: o `index.html` ainda tinha `#08090d` no `<meta name="theme-color">`, de antes da mudança de paleta para "Oliva" — corrigi para `#1f7a4c` (o verde de marca), que é também o `theme_color` do manifest agora.
+
+**Testado e confirmado**: `npm run build` gera `sw.js` + `manifest.webmanifest` corretamente injetados no `<head>`; corri `vite preview` e confirmei no browser (com o Chrome MCP a validar por script: service worker `activated`, manifest a servir com `content-type: application/manifest+json`, ícones todos a responder 200) que os critérios de instalabilidade estavam todos cumpridos. Depois testei a instalação a sério — funcionou tanto no Chrome como no Edge do PC. **Falta só testar num telemóvel**, mas isso exige HTTPS público (um service worker não regista fora de `localhost` ou HTTPS), por isso fica para depois do deploy.
+
+---
+
+## 2026-08-30 — Devia isto ser uma app? (pesquisa, ainda por decidir)
+
+Aproveitei para dar uma limpeza a este diário — ao reler as entradas percebi que estava a escrever como se estivesse a documentar pedidos de outra pessoa ("o utilizador pediu X", "o utilizador reparou Y"), o que não faz qualquer sentido para um documento que vou levar à defesa como o meu próprio raciocínio. Reescrevi tudo em primeira pessoa, mantendo os factos, datas e números tal como estavam — só mudei quem está a falar.
+
+A questão que me ficou na cabeça depois disso foi outra: a app funciona bem num browser, mas para uso a sério no dia a dia — eu próprio a usar, ou alguém a testar no telemóvel durante a apresentação — um site normal nunca vai parecer tão prático como uma app instalada. Tinha duas coisas em mente ao mesmo tempo, que só por coincidência apareceram na mesma pergunta: queria que a app se sentisse mais "app" a usar (ícone no ecrã principal, sem a barra do browser à volta), e queria também que quem for assistir à apresentação consiga mesmo abrir isto e mexer, não só ver-me a fazer scroll num ecrã partilhado.
+
+Para a primeira parte, pensei em duas hipóteses: construir uma app nativa a sério (React Native, ou envolver o que já tenho com Capacitor), ou transformar o que já existe numa PWA. Descartei a app nativa quase de imediato — seria reescrever a interface outra vez, ou pelo menos embrulhá-la, e ainda por cima teria de publicar nas lojas de apps (contas de developer, revisão, tudo isso) só para uma demonstração escolar. Não vale o esforço para o que preciso. Uma PWA resolve a mesma necessidade com uma fração do trabalho: um `manifest.json` com o nome, os ícones (já tenho a marca CentiSible pronta, é só aplicar) e a cor de tema oliva, mais um service worker mínimo — o `vite-plugin-pwa` trata da maior parte disto sozinho. Com isso já dá para "Adicionar ao ecrã principal" no telemóvel ou no computador e abrir num modo próprio, sem parecer que é só mais um separador do Chrome.
+
+A segunda parte é onde as coisas complicam — uma PWA instalada continua a precisar de um sítio real para ir buscar a app, não adianta nada se só corre na minha máquina. Isto liga-se a uma pesquisa que já tinha feito sobre alojamento: já tenho o `docker-compose.prod.yml` pronto e testado, falta só decidir onde o pôr a correr (Railway, Render, Fly.io, um VPS da Hetzner) e configurar um domínio. Também tinha perguntado especificamente pela Vercel, e a resposta ficou clara — o frontend encaixaria bem lá (é só um build Vite normal), mas o backend não, sem mexer em três coisas que hoje dependem de o processo estar sempre vivo: a limpeza periódica de tokens (corre numa tarefa de fundo dentro do próprio processo), os recibos anexados (guardados em disco local, que desaparece entre pedidos num ambiente serverless) e o rate limiting (guardado em memória, sem estado partilhado entre instâncias). Para o número de pessoas que vai usar isto — a apresentação, e depois eu próprio — nenhuma dessas limitações é grave, mas explicam porque é que a Vercel não é um "encaixa e pronto" para o backend.
+
+Não fiz nada disto ainda, ficou só a decidir: começar pela PWA primeiro (não depende de mais ninguém, dá para fazer já), escolher onde alojar, e perceber se preciso das duas coisas prontas antes da apresentação ou se uma já chega.
 
 ---
 
@@ -843,3 +871,221 @@ Apaguei os utilizadores de teste no fim; confirmei que o `CASCADE` limpou `house
 **Nota de UX conhecida (não bloqueante)**: na vista de agregado, duas categorias com o mesmo nome (ex: "Casa" da Ana e "Casa" do Bruno) aparecem como duas fatias separadas no gráfico, porque são de facto categorias distintas (cada uma do seu dono). Juntá-las por nome fica para os Insights (Fase 12), se se justificar — por agora, mostrar a verdade (categorias separadas) é mais correto do que fundir coisas que o modelo trata como diferentes.
 
 ---
+
+## 2026-08-27 — Fase 8: Budgets (orçamento mensal por categoria)
+
+**Objetivo**: definir um limite de gasto mensal por categoria de despesa e ver o progresso (gasto / restante / %) contra as transações reais do mês.
+
+**Decisão central (já no `ARCHITECTURE.md` secção 4, agora implementada) — `spent`/`remaining`/`percentage` NÃO são colunas**: a tabela `budgets` só guarda `category_id` + `period_month` + `amount`. O "gasto" é calculado em runtime pelo service, somando as transações `EXPENSE` dessa categoria nesse mês. Guardar o valor gasto seria uma segunda fonte de verdade que teria de ser atualizada a cada `create`/`update`/`delete` de transação — o mesmo raciocínio do dashboard (Fase 6). `remaining = amount - spent` (pode ser negativo), `percentage = spent/amount*100` (pode passar de 100). `percentage` é `float` (rácio de exibição), tudo o resto é `Decimal`.
+
+**Refactor — `month_bounds` extraído para `app/core/dates.py`**: o cálculo do intervalo semi-aberto `[dia 1, dia 1 do mês seguinte[` estava em `dashboard_service._month_bounds` e agora é preciso também nos orçamentos. Movi para um helper partilhado `app/core/dates.month_bounds(day)`; atualizei o `dashboard_service` para o importar. Segunda utilização = altura certa para extrair (não antes — teria sido abstração prematura).
+
+**Modelo** (migração `c78b7f293320`):
+- `budgets` — `UNIQUE(user_id, category_id, period_month)` (um orçamento por categoria por mês), `CHECK(amount > 0)`.
+- `period_month` é sempre o **primeiro dia do mês** — o service normaliza qualquer data recebida (`period_month.replace(day=1)`) antes de gravar/consultar. Simplifica as queries "orçamentos deste mês" (igualdade exata em vez de intervalo).
+- FK `category_id` → `categories` **`ON DELETE RESTRICT`** (seguindo a decisão da secção 5 do `ARCHITECTURE.md`). Não precisei de código novo: o `category_service.delete_category` já apanha qualquer `IntegrityError` de FK e devolve `409` — só atualizei a mensagem (`"...transações ou orçamentos..."`) para não mentir sobre a causa.
+
+**Regras de negócio**:
+- **Só categorias `EXPENSE` podem ter orçamento** (`422` se for `INCOME`) — orçamentar receitas não faz sentido. É o service que valida, não um `CHECK` (precisaria de um `JOIN` na constraint).
+- **Um orçamento por (categoria, mês)** — verificado em código antes de gravar (`409`), com o `UNIQUE` como rede de segurança. Mesmo padrão das categorias (Fase 4).
+- **Editar só permite mudar o `amount`** — a categoria e o mês *identificam* o orçamento; mudar qualquer um deles é, na prática, criar outro. `BudgetUpdate` só tem `amount`.
+
+**Camadas**: `models/budget.py`, `schemas/budget.py`, `repositories/budget_repository.py` (inclui `spent_by_category` — `SUM ... GROUP BY category_id` das despesas do mês, devolve `dict[category_id, Decimal]`), `services/budget_service.py`, `api/v1/budgets.py` (`GET ?month=`, `POST`, `PATCH /{id}`, `DELETE /{id}`).
+- Testes (`tests/api/test_budgets.py`, 12 testes): criar (spent 0), categoria `INCOME` → `422`, categoria inexistente → `404`, duplicado → `409` (mas mês seguinte ok), `spent` reflete só as transações do mês, orçamento ultrapassado (`remaining` negativo, `percentage` > 100), listagem scoped ao mês, editar valor recalcula o progresso, eliminar, isolamento entre utilizadores, eliminar categoria com orçamento → `409`, exige autenticação. **85 testes no total**, `ruff` limpo.
+
+**Frontend**:
+- Refactor: mudei `features/dashboard/month.ts` para **`src/lib/month.ts`** (agora partilhado com os orçamentos). Só o `dashboard.tsx` o importava; atualizei os imports.
+- `features/budgets/` (`types.ts`, `api.ts`) + `src/routes/budgets.tsx` (rota `/orcamentos`): navegação por mês, formulário "novo orçamento" (só mostra categorias de despesa que ainda não têm orçamento nesse mês — quando esgotam, mostra "Todas as categorias de despesa já têm orçamento para este mês"), e uma lista com **barra de progresso colorida** (verde < 80%, âmbar 80–100%, vermelho > 100%, com a barra a saturar nos 100% mas a % real no texto), texto "X disponível" / "X acima do orçamento", editar valor inline e eliminar com confirmação inline (padrão anti-`window.confirm` das outras páginas). Link "Orçamentos" na navegação do dashboard.
+- Formulário sem RHF/zod (só dois campos, um `<select>` + um valor) — `useState` simples com um regex de validação do valor, como a página do agregado. `oxlint`/`build` limpos.
+
+**Validei end-to-end no browser real**: utilizador com 2 contas/categorias de despesa (Alimentacao, Transporte) e despesas no mês (180 + 75,50 em Alimentacao; 260 em Transporte).
+1. Criar orçamento Alimentacao 200 € → "255,50 € / 200,00 € · 128%", barra **vermelha** cheia, "55,50 € acima do orçamento".
+2. Criar orçamento Transporte 300 € → "260,00 € / 300,00 € · 87%", barra **âmbar**, "40,00 € disponível". Form passa a "todas as categorias já têm orçamento".
+3. Editar Alimentacao para 400 € → recalcula para "255,50 € / 400,00 € · 64%", barra **verde**, "144,50 € disponível".
+4. Naveguei para o mês seguinte → vazio + "Mês atual" aparece + form volta a oferecer as categorias.
+5. Eliminei Transporte (confirmação inline) → desaparece, categoria volta a ficar disponível no form.
+
+Apaguei o utilizador de teste da BD no fim.
+
+---
+
+## 2026-08-27 — Fase 9: Recurring Expenses (despesas recorrentes + geração de transações)
+
+**Objetivo**: registar despesas que se repetem (renda, seguros, subscrições) e ter um mecanismo que cria as transações correspondentes sem lançar à mão todos os meses.
+
+**Modelo** (migração `57804c58a457`): `recurring_expenses` com `account_id`/`category_id` (FK **`ON DELETE RESTRICT`**, como as transações), `description` (obrigatória — uma recorrência sem rótulo é inútil), `amount` (`CHECK > 0`), `frequency` (`MONTHLY`/`YEARLY`), `day_of_month` (`CHECK BETWEEN 1 AND 31`), `next_occurrence` (indexado), `active`.
+
+**Decisão — `next_occurrence` é a fonte de verdade do "quando"; `day_of_month` só restaura o dia canónico**:
+- Dou a **primeira ocorrência** como uma data (`next_occurrence`). Funciona igual para MONTHLY e para YEARLY (a tabela do `ARCHITECTURE.md` não tem `month_of_year`, e não valia a pena adicionar uma coluna — a data inicial já fixa o mês para o caso anual).
+- `day_of_month` é derivado (`next_occurrence.day`) e guardado só para uma coisa: quando um mês curto força um recuo (31/jan → 28/fev), o avanço seguinte volta ao dia canónico (28/fev → **31**/mar). A função `advance()` avança sempre a partir de `day_of_month`, não de `current.day`, e faz `min(day_of_month, último_dia_do_mês_alvo)`.
+- Testei em `tests/unit/test_recurrence.py` (5 testes, sem BD): clamp de mês curto, restauro do dia canónico, viragem de ano, anual, e o 29/fev de ano bissexto a cair em 28/fev.
+
+**Decisão — a geração é `POST /recurring-expenses/generate`, invocada à mão (por agora)**: o `ARCHITECTURE.md` (secção 8) diz "invocado por um cron / GitHub Action / APScheduler". Para o âmbito do projeto, um botão "Gerar agora" na UI + uma nota de que em produção seria um job agendado é o MVP honesto — evita mais uma peça de infraestrutura a explicar. O serviço:
+- Percorre as recorrências **ativas** com `next_occurrence <= hoje`.
+- Para cada uma, faz **catch-up**: enquanto `next_occurrence <= hoje`, cria uma transação datada de `next_occurrence` e avança. Assim, se a app não for aberta durante 3 meses, ao gerar aparecem as 3 rendas em falta, cada uma no seu mês. Cap de `_MAX_CATCH_UP = 120` iterações por recorrência como rede de segurança contra um `next_occurrence` corrompido.
+- **Cada transação passa pelo `transaction_service.create_transaction` normal** — a geração não é um caminho especial, os saldos das contas ficam consistentes de graça, e as transações geradas entram automaticamente no dashboard e nos orçamentos (são despesas reais).
+- Se a categoria da recorrência tiver mudado de tipo para `INCOME` entretanto (estado inconsistente que criei via edição de categorias), a recorrência é **saltada** em silêncio na geração — continua a aparecer como "em atraso" na UI, por isso noto.
+
+**Camadas**: `models/recurring_expense.py`, `schemas/recurring_expense.py` (`RecurringExpenseRead` inclui `account_name`/`category_name`/`is_due` resolvidos no service — `is_due = active AND next_occurrence <= hoje`), `repositories/recurring_expense_repository.py` (inclui `list_due_for_user`), `services/recurring_expense_service.py` (a função `advance()` é pública, para o teste unitário), `api/v1/recurring_expenses.py` (`GET`, `POST`, `POST /generate`, `PATCH /{id}`, `DELETE /{id}`).
+- FKs RESTRICT novas para `accounts`/`categories` → o `account_service`/`category_service` já apanhavam qualquer `IntegrityError` de FK; só atualizei as mensagens de 409 ("...transações **ou despesas recorrentes**...").
+- Testes API (`tests/api/test_recurring_expenses.py`, 12 testes): criar, categoria `INCOME` → 422, conta inexistente → 404, gerar cria 1 transação + avança + é idempotente, catch-up de vários meses (`generated == nº de transações`, saldo = inicial − generated×valor), saltar inativas e futuras, editar (valor/ativa/próxima-ocorrência re-deriva `day_of_month`), eliminar, isolamento entre utilizadores, eliminar conta/categoria em uso → 409, exige autenticação. **102 testes no total** (5 unit + 97 API/integração), `ruff` limpo.
+
+**Frontend**: `features/recurring/` (`types.ts`, `api.ts`, `schemas.ts` com zod) + `src/routes/recurring.tsx` (rota `/recorrentes`): cartão "Gerar transações em falta" com contador de recorrências vencidas e feedback ("N transação(ões) gerada(s)" / "Nada a gerar — está tudo em dia"), formulário RHF+zod (descrição, valor, conta, categoria de despesa, frequência, próxima ocorrência, checkbox "Ativa"), e uma lista com badges "Em atraso"/"Pausada", botão rápido Pausar/Retomar, editar inline (mesmo `RecurringForm`) e eliminar com confirmação inline. `generate` invalida `recurring`/`transactions`/`accounts`/`budgets`/`dashboard`. Link "Recorrentes" na navegação do dashboard.
+
+**Validei end-to-end no browser real**: conta Millennium (3000 €), categoria de despesa Habitacao. Criei recorrência "Renda" 550 €/mês com primeira ocorrência 15/06/2026 (hoje = 27/08) → aparece "Em atraso", contador "1 recorrência com ocorrências por lançar". "Gerar agora" → **"3 transação(ões) gerada(s)"**, badge desaparece, próxima ocorrência passa a 2026-09-15. A página de transações mostra as 3 "Renda" (−550 € em 15/06, 15/07, 15/08). Dashboard: saldo global **1350,00 €** (3000 − 3×550), despesas de agosto **550,00 €** (só a de 15/08 conta nesse mês — as outras estão nos seus meses), donut com Habitacao 100%. Apaguei o utilizador de teste no fim.
+
+---
+
+## 2026-08-27 — Fase 10: Financial Goals (objetivos + projeção de conclusão)
+
+**Objetivo**: registar metas de poupança (fundo de emergência, férias, carro) com valor-alvo, valor já poupado e um prazo opcional, e mostrar quanto é preciso poupar por mês para lá chegar.
+
+**Modelo** (migração `4569675ea483`): `goals` com `name`, `target_amount` (`CHECK > 0`), `current_amount` (`CHECK >= 0`, default 0), `deadline` (nullable). Sem FKs para contas/categorias — um objetivo é uma entidade autónoma (secção 5 do `ARCHITECTURE.md`: `USERS ||--o{ GOALS`). **Sem tabela de histórico de contribuições** — `current_amount` é uma coluna simples que ajusto diretamente, conforme o `ARCHITECTURE.md` (secção 4).
+
+**Decisão — como muda o `current_amount`**:
+- `PATCH /goals/{id}` edita qualquer campo diretamente (nome, alvo, valor, prazo).
+- `POST /goals/{id}/contributions {amount}` é o caminho de UX preferido: penso em deltas ("meti 250 este mês"), não em totais. `amount` pode ser negativo para corrigir; o service rejeita (`422`) se o total ficasse < 0.
+
+**Decisão — a projeção é orientada ao prazo, sem depender do histórico de transações**: `GoalRead` traz calculados em runtime: `remaining` (`max(alvo − atual, 0)`), `progress_percentage`, `is_achieved`, e — só quando há prazo futuro e o objetivo não está atingido — `months_until_deadline` (dias até ao prazo / 30, arredondado para cima) e `required_monthly_contribution` (`remaining / meses`, **arredondado para cima** com `ROUND_UP` para que contribuir esse valor chegue mesmo ao alvo). Se o prazo já passou e não foi atingido, `deadline_passed = true`.
+- **Porquê não "ao teu ritmo de poupança atinges isto em <data>"**: essa projeção precisaria da poupança mensal média (do dashboard), que é a poupança *total* — dividi-la por vários objetivos não está modelado e daria uma data enganadora se tiver 3 metas. A projeção orientada ao prazo é determinística, por-objetivo, e honesta.
+
+**Decisão — PATCH e o prazo nullable**: os outros `*Update` do projeto tratam `None` como "não mexer". Para o prazo isso impediria de o remover depois de definido. O router usa **`"deadline" in payload.model_fields_set`** para distinguir: enviar `{"deadline": null}` limpa o prazo, omitir o campo mantém-no. É a forma correta em Pydantic v2 e vale a pena saber explicar.
+
+**Detalhe — normalização decimal**: quando `current_amount` vem do default Pydantic (`Decimal("0")`) e não de um round-trip à BD, ainda não tem casas fixas — o `_to_read` faz `.quantize("0.01")` a `target`/`current`/`remaining` para a API ser sempre `"0.00"`, não `"0"` (mesmo padrão do dashboard e dos orçamentos).
+
+**Camadas**: `models/goal.py`, `schemas/goal.py`, `repositories/goal_repository.py`, `services/goal_service.py`, `api/v1/goals.py` (`GET`, `POST`, `PATCH /{id}`, `POST /{id}/contributions`, `DELETE /{id}`).
+- Testes (`tests/api/test_goals.py`, 14 testes): criar mínimo, alvo ≤ 0 → 422, `required_monthly_contribution` com prazo (900/3 = 300), arredondamento para cima (1000/3 → 333.34), objetivo atingido não tem contribuição exigida, prazo ultrapassado sinalizado, contribuir soma, contribuir até atingir, contribuir para negativo → 422, editar campos, **limpar o prazo com `{"deadline": null}` e mantê-lo ao omitir**, eliminar, isolamento entre utilizadores, exige autenticação. **116 testes no total**, `ruff` limpo.
+
+**Frontend**: `features/goals/` (`types.ts`, `api.ts`, `schemas.ts` zod) + `src/routes/goals.tsx` (rota `/objetivos`): formulário RHF+zod (nome, alvo, já poupado opcional, prazo opcional), e uma lista com barra de progresso (índigo a encher; **verde** quando atingido), nota de prazo contextual ("Poupa €Y/mês nos próximos Z meses (até <data>)" / "Prazo ultrapassado" / "🎉 Objetivo atingido" / "Sem prazo definido"), campo de contribuição inline ("Adicionar"), editar inline e eliminar com confirmação. Link "Objetivos" no dashboard.
+
+**Validei end-to-end no browser real**:
+1. "Fundo de emergência" alvo 3000 €, já poupado 500 € → barra a 17%, "Sem prazo definido", "Faltam 2500,00 €".
+2. "Ferias" alvo 1200 €, prazo 25/11/2026 (hoje 27/08) → "**Poupa 400,00 €/mês nos próximos 3 meses (até 2026-11-25)**".
+3. Contribuir 1200 € para "Ferias" → barra **verde** a 100%, "🎉 Objetivo atingido" (nota de prazo e "Faltam" desaparecem).
+4. Editei "Fundo de emergência" a adicionar prazo 27/02/2027 → recalcula: "**Poupa 357,15 €/mês nos próximos 7 meses**" (2500/7, arredondado para cima).
+
+Apaguei o utilizador de teste no fim.
+
+---
+
+## 2026-08-27 — Fase 11: Monthly History & Analytics (comparação + evolução)
+
+**Objetivo**: navegar entre meses e ver como o mês se compara com o anterior (variação de receitas/despesas/poupança) e a evolução dos últimos meses num gráfico.
+
+**Decisão — módulo `analytics` separado, só leitura, sem tabela**: os dados já existem nas `transactions`; a analytics é agregação por pedido, como o dashboard (Fase 6). Não estendi o `dashboard_service` para não o inchar — `analytics_service` reutiliza diretamente o `dashboard_repository.sum_amount_by_type` (que já recebe uma lista de `user_id` e um intervalo de datas).
+
+**Decisão — analytics é sempre da vista individual**: o toggle "Agregado familiar" vive no dashboard (Fase 7). Estender a comparação/evolução ao agregado seria mais superfície de teste sem valor claro para a defesa — fica anotado como iteração futura possível.
+
+**Refactor — `app/core/dates.add_months(day, n)`**: aritmética de meses absolutos (`ano*12 + mês` ± `n`), devolve sempre o dia 1. Usado para "mês anterior" na comparação e para gerar a janela de N meses da evolução. Reescrevi o `month_bounds` em função dele (uma linha). Testes unitários novos em `tests/unit/test_dates.py` (viragem de ano nos dois sentidos, normalização para dia 1).
+
+**Backend**:
+- `schemas/analytics.py` — `MonthTotals` (mês + receitas/despesas/poupança), `MonthComparison` (current + previous + `*_change` absolutos + `*_change_pct` — `None` quando o mês anterior foi 0, para não dividir por zero), `MonthlyTrend` (lista de `MonthTotals`, do mais antigo para o mais recente).
+- `services/analytics_service.py` — `get_comparison` e `get_trend`. A % de variação é `(atual − anterior) / |anterior| * 100`, arredondada a 1 casa.
+- `api/v1/analytics.py` — `GET /analytics/monthly-comparison?month=` e `GET /analytics/monthly-trend?months=6&month=` (`months` validado `2..24` pelo FastAPI → `422` fora do intervalo).
+- Testes (`tests/api/test_analytics.py`, 6 testes + 6 unit de datas): deltas e percentagens corretos, sem dados no mês anterior → `pct = None`, série de N meses ordenada e com os meses vazios a `0.00`, `months` fora do intervalo → 422, isolamento entre utilizadores, exige autenticação. **128 testes no total**, `ruff` limpo.
+
+**Frontend**:
+- `src/lib/month.ts` ganhou `parseIsoDate` (sem o desvio de fuso de `new Date(string)`) e `shortMonthLabel` ("2026-06-01" → "jun 26", com ano de 2 dígitos porque a série pode cruzar o ano).
+- `features/analytics/` (`types.ts`, `api.ts`) + `src/routes/history.tsx` (rota `/historico`): navegação por mês, cartão "Comparação com o mês anterior" com 3 linhas (Receitas/Despesas/Poupança) — cada uma mostra o valor atual e a variação com seta ▲/▼ e **cor que depende da direção "boa"**: receitas/poupança a subir = verde, despesas a subir = vermelho, e vice-versa. Gráfico "Evolução dos últimos 6 meses" = `ComposedChart` do Recharts (barras verdes de receitas + barras vermelhas de despesas + linha índigo de poupança), com `YAxis hide` para o Recharts calcular a escala corretamente com séries mistas barra+linha.
+- Link "Histórico" no dashboard.
+
+**Validei end-to-end no browser real** (5 meses de dados, abr–ago 2026):
+- Agosto (2200 receitas / 1400 despesas): "Receitas 2200,00 € ▲ 400,00 € (+22.2%)" verde, "Despesas 1400,00 € ▼ 500,00 € (-26.3%)" verde, "Poupança 800,00 € ▲ 900,00 €" verde (mês anterior tinha poupança negativa).
+- Recuei para Julho (1800 / 1900): "Receitas ▼ 200,00 € (-10%)" vermelho, "Despesas ▲ 250,00 € (+15.2%)" vermelho, "Poupança -100,00 € ▼ 450,00 €" vermelho.
+- Gráfico: barras dimensionadas corretamente, linha de poupança a mergulhar abaixo de zero em julho e a subir em agosto, eixo X com os meses certos, mês sem dados sem barra.
+
+Apaguei o utilizador de teste no fim.
+
+---
+
+## 2026-08-27 — Fase 12: Insights (motor de regras sobre os dados)
+
+**Objetivo**: transformar os números da app em frases úteis — "o teu orçamento de X está quase esgotado", "gastaste 40% mais do que no mês passado", "este objetivo não vai lá ao ritmo atual".
+
+**Decisão — `GET /insights` é um puro agregador, sem tabela nem lógica de acesso a dados própria**: o `insights_service` não toca no `db` diretamente para queries de domínio — chama os serviços já existentes (`dashboard_service.get_summary`, `analytics_service.get_comparison`, `budget_service.list_budgets`, `goal_service.list_goals`) e aplica regras sobre o que eles devolvem. É o exemplo mais claro do projeto de a arquitetura em camadas a compensar: uma feature nova sem uma linha de SQL nova. Cada insight é `{rule, severity, title, detail}` — `rule` é um id estável (ex: `budget_exceeded`) para a UI dar-lhe um ícone fixo.
+
+**As 8 regras** (todas para o mês pedido, vista individual):
+- `budget_exceeded` (aviso) — orçamento acima de 100%.
+- `budget_near_limit` (aviso) — orçamento entre 80% e 100%.
+- `budget_pace` (aviso) — **só no mês atual**: % do orçamento gasto ultrapassa a % de dias decorridos em mais de 20 pontos (e ainda não está esgotado). É a única regra que precisa de saber "quanto do mês já passou" — daí o parâmetro `today` injetável no service, para os testes.
+- `expenses_up` (aviso) / `expenses_down` (positivo) — despesas ≥20% acima / ≥15% abaixo do mês anterior (com um piso de 50 € para não disparar com trocos).
+- `negative_net` (aviso) — poupança do mês negativa.
+- `healthy_savings` (positivo) — taxa de poupança ≥ 20%.
+- `goal_off_pace` (aviso) / `goal_deadline_passed` (aviso) — **só no mês atual**: a contribuição mensal necessária excede a poupança do mês, ou o prazo já passou sem o objetivo estar atingido.
+- Ordenadas por severidade: avisos → info → positivos.
+
+**Detalhe — dinheiro nas frases**: o service formata os valores com um helper `_eur` (`"1 400,00 €"`, com espaço não-quebrável, igual ao que o `Intl.NumberFormat('pt-PT')` do frontend produz) — as frases chegam prontas, o frontend não as recompõe.
+
+**Camadas**: `schemas/insight.py`, `services/insights_service.py`, `api/v1/insights.py` (`GET /insights?month=`).
+- Testes (`tests/api/test_insights.py`, 13 testes): sem dados → lista vazia, cada regra individualmente (o `budget_pace` via chamada direta ao service com `today=date(2026,8,3)`), ordem avisos-antes-de-positivos, isolamento entre utilizadores, exige autenticação. **141 testes no total**, `ruff` limpo.
+
+**Frontend**: `features/insights/` (`types.ts`, `api.ts`) + cartão **"Alertas do mês"** no dashboard (entre os cartões de estatística e o gráfico), com um ponto colorido por severidade (âmbar `!` / verde `✓` / azul `i`), título e detalhe. Estado vazio: "Sem alertas este mês — está tudo em ordem." Segue o mês selecionado no navegador do dashboard.
+
+**Validei end-to-end no browser real**: utilizador com receita 2500 €/mês, orçamento Casa 200 € (gasto 250 → 125%), orçamento Lazer 100 € (gasto 85 → 85%), despesas do mês (335 €) muito abaixo do mês anterior (1400 €), e um objetivo "Carro" 10 000 € com prazo a 45 dias.
+- Mês atual: 5 alertas na ordem certa — 3 avisos (Casa ultrapassado 125%, Lazer quase no limite 85%, "Carro pode não chegar a tempo — precisas de 5 000,00 €/mês e este mês poupaste 2 165,00 €") seguidos de 2 positivos ("Despesas 76% abaixo do mês anterior", "Boa taxa de poupança — 86.6% das receitas").
+- Recuei para julho: só 1 alerta ("Gastaste mais do que ganhaste este mês — -1 400,00 €"); os alertas de objetivo desaparecem (só contam no mês atual), e não há alertas de orçamento (os orçamentos são de agosto).
+
+Apaguei o utilizador de teste no fim.
+
+---
+
+## 2026-08-27 — Fase 13 (parte 1): testes de segurança + endurecimento
+
+**Objetivo**: provar que os riscos clássicos de uma API que mexe em dinheiro estão cobertos — SQL injection, acesso aos dados de outro utilizador, bypass de autenticação, vazamento de segredos — e corrigir o que os testes revelassem.
+
+**Reorganização**: mudei a fixture `client` de `tests/api/conftest.py` para `tests/conftest.py` (raiz), ao lado do `db_session`, para ficar disponível também ao novo pacote `tests/security/`. Nenhum teste existente mudou de comportamento.
+
+**`tests/security/test_sql_injection.py` (8 testes)** — o projeto usa sempre o ORM com queries parametrizadas (`select().where(Coluna == valor)`), nunca concatenação de strings SQL. Os testes injetam 9 payloads clássicos (`'; DROP TABLE users; --`, `' OR '1'='1`, `UNION SELECT password_hash ...`, etc.) em **todos** os campos de texto controlados pelo utilizador (nome de categoria/conta/objetivo/agregado, descrição de transação, email de login) e nos parâmetros de query (`type`, `account_id`, `date_from`, `scope`), e verifico: (a) o payload é guardado/devolvido **literalmente** (é dado, não código); (b) o "canário" (uma categoria criada antes) continua lá; (c) nenhum hash bcrypt (`$2b$`) aparece na resposta; (d) tipos fortes nos parâmetros → `422`, nunca execução; (e) depois de uma rajada de tentativas, a app continua 100% funcional (novo registo + login).
+
+**`tests/security/test_authorization.py` (9 testes)** — IDOR consolidado: para **cada** recurso (contas, categorias, transações, orçamentos, objetivos, recorrências, agregados), o utilizador B não vê, não edita e não elimina os objetos de A — mesmo com o id exato — e recebe **`404`, não `403`** (a escolha da secção 8: não confirmar sequer que o id existe). Inclui: B não cria uma transação que referencie a conta/categoria de A; C não aceita nem cancela um convite de agregado dirigido a B.
+
+**`tests/security/test_authentication.py` (8 testes)** — 14 endpoints protegidos exigem token; headers `Authorization` malformados → `401`; token assinado com a chave errada → `401`; **`alg: none`** (token sem assinatura) → `401`; token expirado → `401`; assinatura válida mas `sub` de utilizador inexistente → `401`; assinatura válida mas `sub` não-UUID / em falta → **`401` (não `500`)**.
+- **Correção em `app/api/deps.py`**: `uuid.UUID(payload["sub"])` podia levantar `ValueError`/`KeyError` não apanhado → `500` com stack trace. Só um token assinado com a minha chave chega a esse ponto, mas se a chave vazasse (ou houvesse um bug interno) o modo de falha tem de ser um `401` limpo. Passou a apanhar `(jwt.InvalidTokenError, KeyError, ValueError, TypeError)`.
+
+**`tests/security/test_data_exposure.py` (6 testes)** — `password`/`password_hash` nunca aparecem em nenhuma resposta (verificação recursiva) nem qualquer `$2b$`; o refresh token é guardado **como hash SHA-256** (64 hex), nunca em claro (verificado direto na tabela `refresh_tokens`); o cookie de refresh tem `HttpOnly` + `SameSite=lax` + `Path=/api/v1/auth` + `Max-Age`; o erro de login é **idêntico** para "email não existe" e "password errada" (sem enumeração de contas); um `404` não devolve stack trace nem menciona `sqlalchemy`.
+
+**`tests/security/test_input_hardening.py` (6 testes)** — valores que a BD rejeitaria são apanhados com `422` antes do insert, nunca `500`:
+- **Endurecimento nos schemas**: `Field(max_digits=12, decimal_places=2)` em todos os campos monetários (conta, transação, orçamento, objetivo, contribuição, recorrência) — `NUMERIC(12,2)` overflow ou 3 casas decimais → `422`. `max_length` nos campos de texto que não o tinham (nome de categoria/conta = 100, descrição de transação = 200, `icon`/`color`) — strings gigantes → `422`.
+- Montantes ≤ 0 em campos `gt=0` → `422`. **Mass-assignment**: campos extra no corpo (`user_id`, `id`, `current_balance`) são ignorados pelo Pydantic — a conta criada é do autor, com id gerado pelo servidor e `current_balance == initial_balance`. JSON malformado → `422`.
+
+**Resultado**: **178 testes a passar** (141 → 178), `ruff` limpo. Smoke test contra o servidor a correr (registo/login/dashboard OK; overflow → 422; token inválido → 401) e verificação visual no browser de que o dashboard continua a funcionar depois do endurecimento. Nenhuma alteração ao frontend (as validações de comprimento no cliente ficam para o polish da Fase 16).
+
+**Gaps de segurança que assumi (fora do âmbito do projeto, a mencionar na defesa se perguntado)**: sem rate limiting / proteção de força bruta no login; sem CSRF token explícito (mitigado por `SameSite=lax` + o access token ir no header `Authorization`, não num cookie); sem cabeçalhos de segurança HTTP (HSTS, CSP) — esses são responsabilidade da camada de deployment (Fase 15).
+
+---
+
+## 2026-08-27 — Fase 13 (parte 2): endurecimento, CI, e testes de casos-limite
+
+Revisão transversal do projeto (segurança, funcionamento, Docker, CI). O que corrigi/melhorei:
+
+**Autenticação — deteção de reutilização de refresh token (resposta a roubo)**: antes, apresentar um refresh token já rodado dava só um `401`. Agora, se o token existe mas está revogado, assumo roubo e **revogo toda a família de tokens do utilizador** (`refresh_token_repository.revoke_all_for_user`), obrigando a novo login em todo o lado — nem o token legítimo mais recente sobrevive. O router de `/refresh` passou a fazer `db.commit()` também no caminho de erro, para a revogação em massa ficar persistida. Teste novo em `test_auth.py`; confirmei também com um smoke test contra o servidor a correr.
+
+**Config — `SECRET_KEY` à prova de erro**: `config.py` ganhou validadores Pydantic — a chave tem de ter ≥ 32 caracteres (RFC 7518) em qualquer ambiente, e fora de `development` a app recusa-se a arrancar se a chave contiver marcadores de placeholder (`change`, `example`, `placeholder`, …). Propriedade `settings.is_production` (`environment` não é `development`/`dev`/`local`/`test`). O `.env.example` passou a ter um `SECRET_KEY` que funciona em dev mas falha em produção, e o README explica como gerar um real. 5 testes unitários em `tests/unit/test_config.py`.
+
+**Robustez de ligação à BD**: `create_engine(..., pool_pre_ping=True)` — cada ligação do pool é testada antes de ser usada, para não rebentar com "connection already closed" se o Postgres reiniciar (ex: `docker compose restart postgres`).
+
+**Docker**:
+- `.dockerignore` no `backend/` e no `frontend/` — o contexto de build deixou de enviar `node_modules`/`.venv`/`.env`/`dist`/`.git`. No frontend isto elimina um risco real: o `COPY . .` do Dockerfile trazia o `node_modules` do host (Windows) para dentro da imagem Linux, por cima do `npm ci`.
+- Healthcheck no serviço `backend` do `docker-compose.yml` (faz `GET /health` a cada 10s), e o `frontend` passou a `depends_on: backend: condition: service_healthy` — `docker compose up` só dá o frontend por pronto depois de a API responder. Validei: `backend running healthy`.
+
+**CI — `.github/workflows/ci.yml` cresceu de 2 para 6 jobs** (era "Fase 0: só lint"): `lint-backend`, `lint-frontend`, **`test-backend`** (com `services: postgres` real, `alembic upgrade head`, `pytest`), **`build-frontend`** (`tsc + vite build`), **`build-images`** (`docker build` dos dois Dockerfiles, para os validar). É essencialmente a Fase 14 adiantada. Testei os dois `docker build` localmente e passam.
+
+**Testes de casos-limite (`tests/api/test_edge_cases.py`, 6 testes)**: eliminar a conta que é *destino* de uma transferência → `409` (a FK `destination_account_id` também é RESTRICT, não só `account_id`); transação num mês muito no futuro (2030-12) não conta no mês atual mas conta em dezembro/2030 e já move o saldo global (aritmética de mês na fronteira do ano); converter uma transação `EXPENSE` → `TRANSFER` limpa a categoria e reaplica os saldos corretamente; transferência sem conta de destino → `422`; último membro a sair de um agregado leva os convites pendentes em cascata; o parâmetro `month` do dashboard aceita qualquer dia do mês.
+
+**Resultado**: **190 testes a passar** (178 → 190), `ruff` limpo, `docker compose config` válido, os dois `docker build` a passar, backend `healthy`.
+
+### Melhorias que identifiquei e que ainda faltam (backlog priorizado)
+
+| Prioridade | Item | Onde |
+|---|---|---|
+| Alta | Suite Playwright E2E (4–6 fluxos) — é a parte que falta da Fase 13 | `frontend/e2e/` |
+| Alta | Rate limiting no `/login` e `/register` (ex: `slowapi`) — mitiga força bruta | `app/main.py` |
+| Média | Limpeza periódica de `refresh_tokens` expirados/revogados (a tabela cresce sempre) — endpoint de manutenção ou job | `app/services/auth_service.py` |
+| Média | Logging estruturado de erros (requisito não-funcional da secção 3 do `ARCHITECTURE.md`, ainda por implementar) | `app/core/` |
+| Média | React error boundary — hoje um erro num componente de rota deixa a app em branco | `frontend/src/` |
+| Média | Dockerfiles de **produção** (frontend: `vite build` + nginx; backend: sem `--reload`, sem `uv`) — Fase 15 | `*/Dockerfile.prod` |
+| Baixa | `maxLength` nos inputs do frontend a espelhar os limites novos dos schemas — Fase 16 (polish) | `frontend/src/routes/` |
+| Baixa | Desativar `/docs` (Swagger) fora de `development` | `app/main.py` |
+| Baixa | Code-splitting por rota (bundle ~850 kB por causa do Recharts) — Fase 16 | `frontend/vite.config.ts` |
+| Baixa | Cabeçalhos de segurança HTTP (HSTS, CSP, X-Content-Type-Options) — camada de deployment, Fase 15 | reverse proxy / `app/main.py` |
+| Baixa | Mudar o `sub` do JWT para incluir `type` e validar `payload["type"] == "access"` no `deps.py` (defesa extra contra confundir access/refresh — hoje o refresh nem é JWT, por isso o risco é teórico) | `app/api/deps.py` |
