@@ -486,7 +486,7 @@ Nada bloqueante, a app está completa e em produção. Coisas que ainda vale a p
 
 **Infraestrutura e dados**:
 - **Recibos em disco na Render**: o plano gratuito não dá disco persistente, por isso um recibo anexado a uma transação não sobrevive a um reinício do container em produção (em dev local, com o volume do `docker-compose`, isto não acontece). Resolver a sério exigiria mover o armazenamento para algo como Cloudflare R2, uma mudança de arquitetura, não só de configuração.
-- **Limpeza de `refresh_tokens` menos fiável em produção do que parece**: corre uma vez a cada 24h dentro do próprio processo (ver secção 8, "Geração de transações recorrentes" tem o mesmo tipo de mecanismo). Na Render grátis, que adormece ao fim de 15 min sem pedidos, um ciclo contínuo de 24h raramente se completa. Impacto baixo à escala atual, mas vale a pena saber.
+- **Limpeza de `refresh_tokens` menos fiável em produção do que parece**: corre uma vez a cada 24h dentro do próprio processo, sem scheduler externo (mesmo estilo de mecanismo simples descrito na secção 8, "Geração de transações recorrentes"). Na Render grátis, que adormece ao fim de 15 min sem pedidos, um ciclo contínuo de 24h raramente se completa. Impacto baixo à escala atual, mas vale a pena saber.
 - **Responsividade em telemóvel a sério**: a landing page e as páginas de login/registo foram desenhadas e testadas sobretudo em desktop; a app instalada como PWA foi testada e funciona bem, mas ainda não revi essas páginas públicas especificamente em ecrãs pequenos.
 
 **Segurança**:
