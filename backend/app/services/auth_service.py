@@ -7,6 +7,7 @@ from app.core.exceptions import (
     EmailAlreadyRegisteredError,
     InvalidCredentialsError,
     InvalidRefreshTokenError,
+    RefreshTokenRaceError,
 )
 from app.core.security import (
     create_access_token,
@@ -51,7 +52,16 @@ def refresh_tokens(db: Session, *, refresh_token: str) -> tuple[User, str, str]:
         raise InvalidRefreshTokenError
 
     if stored.revoked:
-        # Token já rodado a ser reutilizado: assume-se roubo, revoga toda a família.
+        grace = timedelta(seconds=settings.refresh_reuse_grace_seconds)
+        if stored.revoked_at is not None and datetime.now(UTC) - stored.revoked_at <= grace:
+            # Reapresentado logo a seguir à rotação: quase sempre o mesmo cookie
+            # enviado duas vezes quase em simultâneo (PWA + aba do browser, F5
+            # durante um pedido lento, retry de rede). Falha só este pedido — o
+            # pedido paralelo legítimo já rodou para um cookie novo, que este
+            # cliente vai reler e usar a seguir. A família fica intacta.
+            raise RefreshTokenRaceError
+        # Token já rodado, reutilizado bem depois da rotação: assume-se roubo,
+        # revoga toda a família.
         refresh_token_repository.revoke_all_for_user(db, stored.user_id)
         raise InvalidRefreshTokenError
 

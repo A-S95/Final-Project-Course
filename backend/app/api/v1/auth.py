@@ -6,6 +6,7 @@ from app.core.exceptions import (
     EmailAlreadyRegisteredError,
     InvalidCredentialsError,
     InvalidRefreshTokenError,
+    RefreshTokenRaceError,
 )
 from app.core.rate_limit import limiter
 from app.db.session import get_db
@@ -90,6 +91,13 @@ def refresh(
         user, access_token, new_refresh_token = auth_service.refresh_tokens(
             db, refresh_token=refresh_token
         )
+    except RefreshTokenRaceError as exc:
+        # Corrida benigna: NÃO limpar o cookie (o pedido paralelo já o trocou por um
+        # novo, e limpá-lo aqui apagava o bom) e NÃO revogar nada. 409: o cliente
+        # volta a tentar e apanha o cookie novo.
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, "Sessão a ser renovada noutro pedido — tenta novamente."
+        ) from exc
     except InvalidRefreshTokenError as exc:
         # Commit também aqui: uma reutilização detetada já revogou tokens na BD.
         db.commit()

@@ -1,5 +1,5 @@
 import type { AuthResponse } from '@/features/auth/types'
-import { getAccessToken, setAccessToken } from './token-store'
+import { getAccessToken, notifySessionExpired, setAccessToken } from './token-store'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 
@@ -12,29 +12,73 @@ export class ApiError extends Error {
   }
 }
 
+// Falha transitória a renovar a sessão (rede em baixo, backend a acordar na Render,
+// ou corrida benigna resolvida com 409 pelo backend). NÃO significa sessão inválida —
+// quem chama deve voltar a tentar a operação, não deslogar.
+export class RefreshError extends Error {}
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
 let inFlightRefresh: Promise<AuthResponse | null> | null = null
 
+// Um único pedido de refresh de cada vez, e distingue "sessão terminada" (401/403 →
+// null) de "tenta outra vez" (rede/5xx/409 → RefreshError).
 async function doRefresh(): Promise<AuthResponse | null> {
-  const response = await fetch(`${API_URL}/api/v1/auth/refresh`, {
-    method: 'POST',
-    credentials: 'include',
-  })
+  let response: Response
+  try {
+    response = await fetch(`${API_URL}/api/v1/auth/refresh`, {
+      method: 'POST',
+      credentials: 'include',
+      // Nunca deixar o pedido pendurado — senão o lock entre abas fica preso.
+      signal: AbortSignal.timeout(15_000),
+    })
+  } catch {
+    // Erro de rede / timeout / servidor inacessível: a sessão pode estar válida.
+    throw new RefreshError('network')
+  }
 
-  if (!response.ok) {
+  if (response.ok) {
+    const body = (await response.json()) as AuthResponse
+    setAccessToken(body.access_token)
+    return body
+  }
+
+  if (response.status === 401 || response.status === 403) {
+    // Refresh token mesmo rejeitado: sessão terminada.
     setAccessToken(null)
+    notifySessionExpired()
     return null
   }
 
-  const body = (await response.json()) as AuthResponse
-  setAccessToken(body.access_token)
-  return body
+  // 409 = o backend viu uma corrida benigna e já rodou o cookie noutro pedido;
+  // 5xx = backend a acordar. Ambos passam a nova tentativa (o cookie novo já cá está).
+  throw new RefreshError(`http ${response.status}`)
 }
 
-// O backend trata reutilização de refresh token como roubo; esta promise partilhada
-// evita que chamadas concorrentes disparem dois refreshes com o mesmo cookie.
+async function refreshWithRetry(): Promise<AuthResponse | null> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await doRefresh()
+    } catch (err) {
+      if (!(err instanceof RefreshError) || attempt >= 2) throw err
+      await sleep(250 * (attempt + 1))
+    }
+  }
+}
+
+// Lock entre abas/PWA da mesma origem: só um contexto chega ao /refresh de cada vez,
+// mesmo com a PWA instalada e uma aba do browser abertas ao mesmo tempo. Dentro do
+// mesmo contexto, `inFlightRefresh` já partilha a promise entre chamadas concorrentes.
+async function runRefreshExclusive(): Promise<AuthResponse | null> {
+  if (typeof navigator !== 'undefined' && navigator.locks) {
+    return navigator.locks.request('centisible-refresh', () => refreshWithRetry())
+  }
+  return refreshWithRetry()
+}
+
 export function refreshSession(): Promise<AuthResponse | null> {
   if (!inFlightRefresh) {
-    inFlightRefresh = doRefresh().finally(() => {
+    inFlightRefresh = runRefreshExclusive().finally(() => {
       inFlightRefresh = null
     })
   }

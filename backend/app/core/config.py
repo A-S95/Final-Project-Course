@@ -18,6 +18,12 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 15
     refresh_token_expire_days: int = 30
+    # Reutilizar um refresh token já rodado dentro desta janela trata-se como uma
+    # corrida benigna (mesmo cookie enviado 2x quase ao mesmo tempo: PWA + aba do
+    # browser, F5 durante um pedido lento, retry de rede), não como roubo. Só
+    # falha esse pedido; a família de tokens fica intacta. Reutilização depois
+    # da janela continua a revogar toda a família (ver auth_service.refresh_tokens).
+    refresh_reuse_grace_seconds: int = 10
 
     uploads_dir: str = "uploads"  # relativo ao cwd; ver volume uploads_data no compose
 

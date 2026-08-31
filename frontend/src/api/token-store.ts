@@ -10,3 +10,16 @@ export function getAccessToken(): string | null {
 export function setAccessToken(token: string | null): void {
   accessToken = token
 }
+
+// O cliente HTTP avisa aqui quando o refresh token é mesmo rejeitado (sessão
+// terminada), para o AuthContext poder reagir e mandar para o login — em vez de
+// deixar a app presa a mostrar erros de "não autenticado" numa página protegida.
+let sessionExpiredHandler: (() => void) | null = null
+
+export function setSessionExpiredHandler(handler: (() => void) | null): void {
+  sessionExpiredHandler = handler
+}
+
+export function notifySessionExpired(): void {
+  sessionExpiredHandler?.()
+}

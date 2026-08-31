@@ -1,4 +1,7 @@
+import pytest
 from fastapi.testclient import TestClient
+
+from app.core.config import settings
 
 REGISTER_URL = "/api/v1/auth/register"
 LOGIN_URL = "/api/v1/auth/login"
@@ -146,15 +149,40 @@ def test_refresh_rotates_the_refresh_token(client: TestClient) -> None:
     assert new_refresh_token != old_refresh_token
     assert new_access_token
 
-    # o refresh token antigo já não pode ser reutilizado (rotação real)
+    # O refresh token antigo já não serve para obter um novo (rotação real). Reapresentado
+    # de imediato conta como corrida benigna → 409 (ver teste dedicado abaixo).
     client.cookies.set("refresh_token", old_refresh_token)
     reuse_response = client.post(REFRESH_URL)
-    assert reuse_response.status_code == 401
+    assert reuse_response.status_code == 409
 
 
-def test_reusing_a_rotated_refresh_token_revokes_the_whole_family(client: TestClient) -> None:
-    """Deteção de roubo: se um token JÁ rodado voltar a ser apresentado, revoga-se
-    toda a família de tokens do utilizador — nem o token válido mais recente serve."""
+def test_immediate_refresh_token_reuse_is_treated_as_a_benign_race(client: TestClient) -> None:
+    """Mesmo cookie enviado duas vezes quase em simultâneo (PWA + aba do browser, F5
+    durante um pedido lento, retry de rede): o pedido atrasado falha com 409, mas a
+    família de tokens fica intacta e a sessão legítima continua a funcionar."""
+    _register(client)
+    first_token = client.cookies.get("refresh_token")
+
+    assert client.post(REFRESH_URL).status_code == 200
+    current_token = client.cookies.get("refresh_token")
+
+    # Reapresentar o token acabado de rodar, dentro da janela de tolerância.
+    client.cookies.set("refresh_token", first_token)
+    assert client.post(REFRESH_URL).status_code == 409
+
+    # Nada foi revogado em cadeia — o token legítimo mais recente continua válido.
+    client.cookies.set("refresh_token", current_token)
+    assert client.post(REFRESH_URL).status_code == 200
+
+
+def test_reusing_a_rotated_refresh_token_outside_the_grace_window_revokes_the_whole_family(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Deteção de roubo: um token JÁ rodado, reapresentado fora da janela de tolerância,
+    revoga toda a família — nem o token mais recente serve. Com a janela a 0, qualquer
+    reutilização cai neste caminho (equivale a reutilizar bem depois da rotação)."""
+    monkeypatch.setattr(settings, "refresh_reuse_grace_seconds", 0)
+
     _register(client)
     stolen_token = client.cookies.get("refresh_token")
 

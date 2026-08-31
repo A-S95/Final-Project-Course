@@ -10,6 +10,12 @@ class InvalidRefreshTokenError(Exception):
     """Refresh token inexistente, revogado ou expirado."""
 
 
+class RefreshTokenRaceError(Exception):
+    """Refresh token já rodado, reapresentado dentro da janela de tolerância — trata-se
+    como pedido concorrente benigno (mesmo cookie enviado 2x), não como roubo: falha só
+    este pedido, sem revogar a família de tokens do utilizador."""
+
+
 class AccountNotFoundError(Exception):
     """Conta inexistente ou não pertence ao utilizador autenticado."""
 

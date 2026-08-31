@@ -2,18 +2,22 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { Suspense } from 'react'
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { AppShell } from '@/components/app-shell'
-import { ContentSpinner, Splash } from '@/components/splash'
+import { ConnectionError, ContentSpinner, Splash } from '@/components/splash'
 import { useAuth } from '@/features/auth/use-auth'
 
 // Rota de layout: monta o AppShell uma vez só, o <Outlet/> entra/sai sozinho.
 // Antes cada rota embrulhava <ProtectedRoute> individualmente e a sidebar remontava a cada clique.
 export function ProtectedRoute() {
-  const { status } = useAuth()
+  const { status, retrySession } = useAuth()
   const location = useLocation()
   const reduceMotion = useReducedMotion()
 
   if (status === 'loading') {
     return <Splash />
+  }
+
+  if (status === 'connection-error') {
+    return <ConnectionError onRetry={retrySession} />
   }
 
   if (status === 'unauthenticated') {

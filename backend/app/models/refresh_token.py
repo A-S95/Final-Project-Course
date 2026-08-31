@@ -20,6 +20,9 @@ class RefreshToken(Base):
     token_hash: Mapped[str] = mapped_column(String, nullable=False, unique=True, index=True)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     revoked: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # Quando foi revogado (rotação ou roubo). Alimenta a janela de tolerância a
+    # corridas em auth_service.refresh_tokens. NULL = revogado antes desta coluna existir.
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

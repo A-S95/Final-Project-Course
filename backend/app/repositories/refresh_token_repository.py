@@ -22,6 +22,7 @@ def get_by_hash(db: Session, token_hash: str) -> RefreshToken | None:
 
 def revoke(db: Session, token: RefreshToken) -> None:
     token.revoked = True
+    token.revoked_at = datetime.now(UTC)
     db.flush()
 
 
@@ -31,7 +32,7 @@ def revoke_all_for_user(db: Session, user_id: uuid.UUID) -> None:
     db.execute(
         update(RefreshToken)
         .where(RefreshToken.user_id == user_id, RefreshToken.revoked.is_(False))
-        .values(revoked=True)
+        .values(revoked=True, revoked_at=datetime.now(UTC))
     )
     db.flush()
 
