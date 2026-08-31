@@ -34,9 +34,15 @@ def send_email(*, to: str, subject: str, html: str) -> None:
     try:
         with urllib.request.urlopen(request, timeout=10) as response:
             response.read()
-    except (urllib.error.URLError, TimeoutError) as exc:
+    except urllib.error.HTTPError as exc:
         # Um email que falha não deve rebentar o pedido do utilizador: regista e segue.
-        error_logger.error("Falha ao enviar email para %s: %s", to, exc)
+        # O corpo da resposta traz o motivo real (chave inválida, domínio não verificado, ...).
+        body = exc.read().decode("utf-8", errors="replace")[:500]
+        error_logger.error(
+            "Resend recusou o email para %s: HTTP %s — %s", to, exc.code, body
+        )
+    except (urllib.error.URLError, TimeoutError) as exc:
+        error_logger.error("Falha ao contactar a Resend para enviar email a %s: %s", to, exc)
 
 
 def password_reset_email_html(*, name: str, reset_url: str, expire_minutes: int) -> str:
