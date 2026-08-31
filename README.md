@@ -26,8 +26,8 @@ Documentação completa em [`docs/`](docs/):
 
 ## Stack
 
-**Backend**: Python, FastAPI, SQLAlchemy 2.x, Alembic, PostgreSQL, Pydantic
-**Frontend**: React, TypeScript, Vite, TanStack Query, React Hook Form + Zod, Tailwind CSS, Framer Motion, Recharts, `vite-plugin-pwa`
+**Backend**: Python, FastAPI, SQLAlchemy 2.x, Alembic, PostgreSQL, Pydantic<br>
+**Frontend**: React, TypeScript, Vite, TanStack Query, React Hook Form + Zod, Tailwind CSS, Framer Motion, Recharts, `vite-plugin-pwa`<br>
 **Infra**: Docker Compose (dev), GitHub Actions (CI), Vercel + Render + Neon (produção)
 
 ## Como correr localmente
