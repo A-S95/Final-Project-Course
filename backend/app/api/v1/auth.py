@@ -1,4 +1,13 @@
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Cookie,
+    Depends,
+    HTTPException,
+    Request,
+    Response,
+    status,
+)
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -74,14 +83,20 @@ def login(
 @router.post("/password-reset/request", status_code=status.HTTP_202_ACCEPTED)
 @limiter.limit("5/hour")
 def password_reset_request(
-    request: Request, payload: PasswordResetRequest, db: Session = Depends(get_db)
+    request: Request,
+    payload: PasswordResetRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
 ) -> dict[str, str]:
     result = auth_service.request_password_reset(db, email=payload.email)
     db.commit()
     if result is not None:
         user, raw_token = result
         reset_url = f"{settings.frontend_base_url}/redefinir-password?token={raw_token}"
-        send_email(
+        # Enviar o email depois da resposta: o cliente não fica à espera do
+        # round-trip à Resend (que já era lento, e ainda mais com a Render a acordar).
+        background_tasks.add_task(
+            send_email,
             to=user.email,
             subject="Repor a tua password — CentiSible",
             html=password_reset_email_html(
