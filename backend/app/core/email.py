@@ -28,6 +28,10 @@ def send_email(*, to: str, subject: str, html: str) -> None:
         headers={
             "Authorization": f"Bearer {settings.resend_api_key}",
             "Content-Type": "application/json",
+            "Accept": "application/json",
+            # Sem isto o urllib manda "Python-urllib/3.x", que a firewall da
+            # Cloudflare à frente da API da Resend bloqueia (erro 1010).
+            "User-Agent": "CentiSible/1.0 (+https://centisible.vercel.app)",
         },
         method="POST",
     )
