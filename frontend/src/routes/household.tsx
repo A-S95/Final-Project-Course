@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { motion, useReducedMotion } from 'motion/react'
 import { useState } from 'react'
-import { ApiError } from '@/api/client'
+import { errorMessage } from '@/api/client'
 import { PageHeader } from '@/components/page-header'
 import { QueryError } from '@/components/query-error'
 import { Button } from '@/components/ui/button'
@@ -10,10 +10,6 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import * as householdsApi from '@/features/households/api'
 import type { Household, Invite } from '@/features/households/types'
-
-function errorMessage(err: unknown, fallback: string) {
-  return err instanceof ApiError ? err.message : fallback
-}
 
 function ReceivedInvites({ invites }: { invites: Invite[] }) {
   const queryClient = useQueryClient()

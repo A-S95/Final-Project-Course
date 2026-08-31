@@ -1,9 +1,9 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { motion, useReducedMotion } from 'motion/react'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { ApiError } from '@/api/client'
+import { AnimatedListItem } from '@/components/animated-list-item'
 import { PageHeader } from '@/components/page-header'
 import { QueryError } from '@/components/query-error'
 import { Button } from '@/components/ui/button'
@@ -163,7 +163,6 @@ function CategoryRow({
   index: number
   otherCategoriesOfSameType: Category[]
 }) {
-  const reduceMotion = useReducedMotion()
   const queryClient = useQueryClient()
   const [isEditing, setIsEditing] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
@@ -216,11 +215,8 @@ function CategoryRow({
   }
 
   return (
-    <motion.div
-      initial={reduceMotion ? false : { opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, delay: index * 0.04, ease: 'easeOut' }}
-      whileHover={reduceMotion ? undefined : { y: -2 }}
+    <AnimatedListItem
+      index={index}
       className={`flex flex-col gap-4 rounded-2xl border border-border bg-surface-raised p-5 transition-shadow hover:shadow-md ${inUse ? 'sm:col-span-2 xl:col-span-3' : ''}`}
     >
       <div className="flex items-center gap-3">
@@ -313,7 +309,7 @@ function CategoryRow({
           </>
         )}
       </div>
-    </motion.div>
+    </AnimatedListItem>
   )
 }
 

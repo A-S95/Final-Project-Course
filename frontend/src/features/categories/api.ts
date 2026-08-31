@@ -11,7 +11,7 @@ export function createCategory(payload: CategoryInput) {
   return apiClient.post<Category>(BASE_URL, payload)
 }
 
-export function updateCategory(id: string, payload: Partial<CategoryInput>) {
+export function updateCategory(id: string, payload: CategoryInput) {
   return apiClient.patch<Category>(`${BASE_URL}/${id}`, payload)
 }
 

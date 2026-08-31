@@ -1,6 +1,6 @@
 from fastapi.testclient import TestClient
 
-from tests.api.helpers import create_account, register_and_get_headers
+from tests.api.helpers import account_update_body, create_account, register_and_get_headers
 
 ACCOUNTS_URL = "/api/v1/accounts"
 
@@ -34,7 +34,9 @@ def test_update_initial_balance_adjusts_current_balance_by_delta(client: TestCli
     account = create_account(client, headers, initial_balance="100.00")
 
     response = client.patch(
-        f"{ACCOUNTS_URL}/{account['id']}", json={"initial_balance": "150.00"}, headers=headers
+        f"{ACCOUNTS_URL}/{account['id']}",
+        json=account_update_body(account, initial_balance="150.00"),
+        headers=headers,
     )
 
     assert response.status_code == 200
@@ -48,7 +50,9 @@ def test_update_name_does_not_touch_balances(client: TestClient) -> None:
     account = create_account(client, headers, initial_balance="100.00")
 
     response = client.patch(
-        f"{ACCOUNTS_URL}/{account['id']}", json={"name": "Nova Conta"}, headers=headers
+        f"{ACCOUNTS_URL}/{account['id']}",
+        json=account_update_body(account, name="Nova Conta"),
+        headers=headers,
     )
 
     assert response.status_code == 200
@@ -63,7 +67,9 @@ def test_cannot_update_another_users_account(client: TestClient) -> None:
     account = create_account(client, headers_a)
 
     response = client.patch(
-        f"{ACCOUNTS_URL}/{account['id']}", json={"name": "Roubada"}, headers=headers_b
+        f"{ACCOUNTS_URL}/{account['id']}",
+        json=account_update_body(account, name="Roubada"),
+        headers=headers_b,
     )
 
     assert response.status_code == 404
@@ -107,7 +113,9 @@ def test_update_card_fields(client: TestClient) -> None:
 
     response = client.patch(
         f"{ACCOUNTS_URL}/{account['id']}",
-        json={"card_expiration_date": "2028-01-31", "card_plafond": "500.00"},
+        json=account_update_body(
+            account, card_expiration_date="2028-01-31", card_plafond="500.00"
+        ),
         headers=headers,
     )
 
@@ -126,7 +134,7 @@ def test_update_can_clear_card_fields_explicitly(client: TestClient) -> None:
 
     response = client.patch(
         f"{ACCOUNTS_URL}/{account['id']}",
-        json={"card_expiration_date": None, "card_plafond": None},
+        json=account_update_body(account, card_expiration_date=None, card_plafond=None),
         headers=headers,
     )
 
@@ -136,7 +144,7 @@ def test_update_can_clear_card_fields_explicitly(client: TestClient) -> None:
     assert body["card_plafond"] is None
 
 
-def test_update_omitting_card_fields_leaves_them_untouched(client: TestClient) -> None:
+def test_update_keeping_card_fields_leaves_them_untouched(client: TestClient) -> None:
     headers = register_and_get_headers(client)
     account = create_account(
         client, headers, type="CREDIT_CARD",
@@ -144,7 +152,9 @@ def test_update_omitting_card_fields_leaves_them_untouched(client: TestClient) -
     )
 
     response = client.patch(
-        f"{ACCOUNTS_URL}/{account['id']}", json={"name": "Universo renomeado"}, headers=headers
+        f"{ACCOUNTS_URL}/{account['id']}",
+        json=account_update_body(account, name="Universo renomeado"),
+        headers=headers,
     )
 
     assert response.status_code == 200

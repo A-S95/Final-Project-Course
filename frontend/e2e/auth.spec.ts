@@ -9,6 +9,28 @@ test('regista uma conta nova e chega ao dashboard', async ({ page }) => {
   await expect(page.getByText(`Olá, ${name.split(' ')[0]}`)).toBeVisible()
 })
 
+test('a partir do login, pede uma ligação de recuperação de password', async ({ page }) => {
+  await page.goto('/login')
+  await page.getByRole('link', { name: 'Esqueceste-te da password?' }).click()
+  await expect(page).toHaveURL('/recuperar-password')
+  // Esperar a página assentar (transição do AnimatePresence) antes de preencher.
+  await expect(page.getByRole('heading', { name: 'Recuperar password' })).toBeVisible()
+
+  await page.getByLabel('Email').fill(uniqueEmail('reset'))
+  await page.getByRole('button', { name: 'Enviar ligação' }).click()
+
+  // Resposta genérica (não revela se a conta existe) + caminho de volta ao login.
+  await expect(page.getByText(/Se existir uma conta com esse email/)).toBeVisible()
+  await page.getByRole('link', { name: 'Voltar ao início de sessão' }).click()
+  await expect(page).toHaveURL('/login')
+})
+
+test('a página de nova password sem token pede uma ligação nova', async ({ page }) => {
+  await page.goto('/redefinir-password')
+  await expect(page.getByText(/falta o código de recuperação/)).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Pedir nova ligação' })).toBeVisible()
+})
+
 test('permite iniciar sessão com uma conta existente', async ({ page }) => {
   const email = uniqueEmail('login')
   const password = 'Password123'

@@ -17,13 +17,14 @@ class AccountCreate(BaseModel):
 
 
 class AccountUpdate(BaseModel):
-    name: str | None = Field(default=None, min_length=1, max_length=100)
-    type: AccountType | None = None
-    initial_balance: Decimal | None = Field(default=None, max_digits=12, decimal_places=2)
-    # Nestes dois `null` é um destino válido; o service distingue "omitido" de
-    # "enviado como null" via `model_fields_set`, não o padrão "None = não mexer".
-    card_expiration_date: date | None = None
-    card_plafond: Decimal | None = Field(default=None, max_digits=12, decimal_places=2)
+    """PATCH mas sem campos parciais: a UI reenvia sempre o formulário completo, tal
+    como em `TransactionUpdate`. `null` em `card_*` limpa o valor."""
+
+    name: str = Field(min_length=1, max_length=100)
+    type: AccountType
+    initial_balance: Decimal = Field(max_digits=12, decimal_places=2)
+    card_expiration_date: date | None
+    card_plafond: Decimal | None = Field(max_digits=12, decimal_places=2)
 
 
 class AccountRead(BaseModel):

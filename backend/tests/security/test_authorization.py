@@ -8,6 +8,23 @@ from fastapi.testclient import TestClient
 
 from tests.api.helpers import auth_headers, create_account, create_category, register
 
+# Corpos de update completos (a UI reenvia sempre tudo) — valores arbitrários, o
+# atacante nem conhece os reais; o que importa é que a resposta é 404, não 403.
+_ACCOUNT_UPDATE = {
+    "name": "hijacked",
+    "type": "BANK",
+    "initial_balance": "0.00",
+    "card_expiration_date": None,
+    "card_plafond": None,
+}
+_CATEGORY_UPDATE = {"name": "hijacked", "type": "EXPENSE", "icon": None, "color": None}
+_GOAL_UPDATE = {
+    "name": "hijacked",
+    "target_amount": "1000.00",
+    "current_amount": "0.00",
+    "deadline": None,
+}
+
 ACCOUNTS_URL = "/api/v1/accounts"
 CATEGORIES_URL = "/api/v1/categories"
 TRANSACTIONS_URL = "/api/v1/transactions"
@@ -29,7 +46,7 @@ def test_cannot_read_or_modify_another_users_account(client: TestClient) -> None
 
     assert account["id"] not in {x["id"] for x in client.get(ACCOUNTS_URL, headers=b).json()}
     assert client.patch(
-        f"{ACCOUNTS_URL}/{account['id']}", json={"name": "hijacked"}, headers=b
+        f"{ACCOUNTS_URL}/{account['id']}", json=_ACCOUNT_UPDATE, headers=b
     ).status_code == 404
     assert client.delete(f"{ACCOUNTS_URL}/{account['id']}", headers=b).status_code == 404
 
@@ -40,7 +57,7 @@ def test_cannot_read_or_modify_another_users_category(client: TestClient) -> Non
 
     assert category["id"] not in {x["id"] for x in client.get(CATEGORIES_URL, headers=b).json()}
     assert client.patch(
-        f"{CATEGORIES_URL}/{category['id']}", json={"name": "hijacked"}, headers=b
+        f"{CATEGORIES_URL}/{category['id']}", json=_CATEGORY_UPDATE, headers=b
     ).status_code == 404
     assert client.delete(f"{CATEGORIES_URL}/{category['id']}", headers=b).status_code == 404
 
@@ -125,7 +142,7 @@ def test_cannot_touch_another_users_goal(client: TestClient) -> None:
     ).json()
 
     assert client.patch(
-        f"{GOALS_URL}/{goal['id']}", json={"name": "x"}, headers=b
+        f"{GOALS_URL}/{goal['id']}", json=_GOAL_UPDATE, headers=b
     ).status_code == 404
     assert client.post(
         f"{GOALS_URL}/{goal['id']}/contributions", json={"amount": "50.00"}, headers=b
@@ -181,7 +198,7 @@ def test_unauthorized_access_returns_404_not_403(client: TestClient) -> None:
     a, b = _users(client)
     account = create_account(client, a)
     response = client.patch(
-        f"{ACCOUNTS_URL}/{account['id']}", json={"name": "x"}, headers=b
+        f"{ACCOUNTS_URL}/{account['id']}", json=_ACCOUNT_UPDATE, headers=b
     )
     assert response.status_code == 404
     assert response.status_code != 403

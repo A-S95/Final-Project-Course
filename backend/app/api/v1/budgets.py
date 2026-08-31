@@ -1,16 +1,10 @@
 import uuid
 from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
-from app.core.exceptions import (
-    BudgetAlreadyExistsError,
-    BudgetCategoryInvalidError,
-    BudgetNotFoundError,
-    CategoryNotFoundError,
-)
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.budget import BudgetCreate, BudgetRead, BudgetUpdate
@@ -39,27 +33,13 @@ def create_budget(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> BudgetRead:
-    try:
-        budget = budget_service.create_budget(
-            db,
-            user_id=current_user.id,
-            category_id=payload.category_id,
-            period_month=payload.period_month,
-            amount=payload.amount,
-        )
-    except CategoryNotFoundError as exc:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Categoria não encontrada.") from exc
-    except BudgetCategoryInvalidError as exc:
-        raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_CONTENT,
-            "Só categorias de despesa podem ter orçamento.",
-        ) from exc
-    except BudgetAlreadyExistsError as exc:
-        raise HTTPException(
-            status.HTTP_409_CONFLICT,
-            "Já existe um orçamento para esta categoria neste mês.",
-        ) from exc
-
+    budget = budget_service.create_budget(
+        db,
+        user_id=current_user.id,
+        category_id=payload.category_id,
+        period_month=payload.period_month,
+        amount=payload.amount,
+    )
     db.commit()
     return budget
 
@@ -71,13 +51,9 @@ def update_budget(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> BudgetRead:
-    try:
-        budget = budget_service.update_budget(
-            db, user_id=current_user.id, budget_id=budget_id, amount=payload.amount
-        )
-    except BudgetNotFoundError as exc:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Orçamento não encontrado.") from exc
-
+    budget = budget_service.update_budget(
+        db, user_id=current_user.id, budget_id=budget_id, amount=payload.amount
+    )
     db.commit()
     return budget
 
@@ -88,9 +64,5 @@ def delete_budget(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> None:
-    try:
-        budget_service.delete_budget(db, user_id=current_user.id, budget_id=budget_id)
-    except BudgetNotFoundError as exc:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Orçamento não encontrado.") from exc
-
+    budget_service.delete_budget(db, user_id=current_user.id, budget_id=budget_id)
     db.commit()

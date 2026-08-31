@@ -1,6 +1,11 @@
 from fastapi.testclient import TestClient
 
-from tests.api.helpers import create_account, create_category, register_and_get_headers
+from tests.api.helpers import (
+    category_update_body,
+    create_account,
+    create_category,
+    register_and_get_headers,
+)
 
 CATEGORIES_URL = "/api/v1/categories"
 ACCOUNTS_URL = "/api/v1/accounts"
@@ -56,7 +61,9 @@ def test_update_category_name(client: TestClient) -> None:
     category = create_category(client, headers)
 
     response = client.patch(
-        f"{CATEGORIES_URL}/{category['id']}", json={"name": "Restaurantes"}, headers=headers
+        f"{CATEGORIES_URL}/{category['id']}",
+        json=category_update_body(category, name="Restaurantes"),
+        headers=headers,
     )
 
     assert response.status_code == 200
@@ -69,7 +76,9 @@ def test_update_to_a_name_already_used_returns_409(client: TestClient) -> None:
     category = create_category(client, headers, name="Freelance", type="INCOME")
 
     response = client.patch(
-        f"{CATEGORIES_URL}/{category['id']}", json={"name": "Salário"}, headers=headers
+        f"{CATEGORIES_URL}/{category['id']}",
+        json=category_update_body(category, name="Salário"),
+        headers=headers,
     )
 
     assert response.status_code == 409
@@ -81,7 +90,9 @@ def test_cannot_update_another_users_category(client: TestClient) -> None:
     category = create_category(client, headers_a)
 
     response = client.patch(
-        f"{CATEGORIES_URL}/{category['id']}", json={"name": "Roubada"}, headers=headers_b
+        f"{CATEGORIES_URL}/{category['id']}",
+        json=category_update_body(category, name="Roubada"),
+        headers=headers_b,
     )
 
     assert response.status_code == 404

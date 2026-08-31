@@ -3,13 +3,23 @@ import type { Transaction, TransactionFilters, TransactionInput } from './types'
 
 const BASE_URL = '/api/v1/transactions'
 
-export function listTransactions(filters: TransactionFilters = {}) {
+function filtersToQuery(filters: TransactionFilters): string {
   const params = new URLSearchParams()
   for (const [key, value] of Object.entries(filters)) {
     if (value) params.set(key, value)
   }
-  const query = params.toString()
+  return params.toString()
+}
+
+export function listTransactions(filters: TransactionFilters = {}) {
+  const query = filtersToQuery(filters)
   return apiClient.get<Transaction[]>(query ? `${BASE_URL}?${query}` : BASE_URL)
+}
+
+// CSV com os mesmos filtros da lista — "exporta o que estás a ver".
+export function exportTransactionsCsv(filters: TransactionFilters = {}) {
+  const query = filtersToQuery(filters)
+  return apiClient.fetchBlob(query ? `${BASE_URL}/export?${query}` : `${BASE_URL}/export`)
 }
 
 export function createTransaction(payload: TransactionInput) {

@@ -1,10 +1,30 @@
 import { z } from 'zod'
+import { AMOUNT_RE } from '@/lib/money'
 
 export const loginSchema = z.object({
   email: z.string().email('Email inválido'),
   password: z.string().min(1, 'Introduz a password'),
 })
 export type LoginFormValues = z.infer<typeof loginSchema>
+
+export const forgotPasswordSchema = z.object({
+  email: z.string().email('Email inválido'),
+})
+export type ForgotPasswordFormValues = z.infer<typeof forgotPasswordSchema>
+
+export const resetPasswordSchema = z
+  .object({
+    password: z
+      .string()
+      .min(8, 'A password tem de ter pelo menos 8 caracteres')
+      .max(72, 'A password não pode exceder 72 caracteres'),
+    confirm: z.string(),
+  })
+  .refine((data) => data.password === data.confirm, {
+    message: 'As passwords não coincidem',
+    path: ['confirm'],
+  })
+export type ResetPasswordFormValues = z.infer<typeof resetPasswordSchema>
 
 export const registerSchema = z.object({
   name: z.string().min(1, 'Introduz o teu nome'),
@@ -15,8 +35,6 @@ export const registerSchema = z.object({
     .max(72, 'A password não pode exceder 72 caracteres'),
 })
 export type RegisterFormValues = z.infer<typeof registerSchema>
-
-const AMOUNT_RE = /^\d+(\.\d{1,2})?$/
 
 export const settingsSchema = z.object({
   name: z.string().min(1, 'Introduz o teu nome'),

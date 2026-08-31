@@ -32,14 +32,11 @@ import {
   startOfMonth,
   toIsoDate,
 } from '@/lib/month'
+import { formatMoney } from '@/lib/money'
 import { useAuth } from '@/features/auth/use-auth'
 
 // Fallback para categorias sem cor escolhida, mesma paleta do seletor.
 const FALLBACK_COLORS = CATEGORY_COLOR_PALETTE
-
-function formatMoney(value: string | number, currency: string) {
-  return new Intl.NumberFormat('pt-PT', { style: 'currency', currency }).format(Number(value))
-}
 
 function colorFor(item: CategoryExpense, index: number) {
   return item.color ?? FALLBACK_COLORS[index % FALLBACK_COLORS.length]

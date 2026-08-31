@@ -90,23 +90,17 @@ def update_goal(
     *,
     user_id: uuid.UUID,
     goal_id: uuid.UUID,
-    name: str | None,
-    target_amount: Decimal | None,
-    current_amount: Decimal | None,
+    name: str,
+    target_amount: Decimal,
+    current_amount: Decimal,
     deadline: date | None,
-    deadline_set: bool,
 ) -> GoalRead:
     goal = get_goal(db, user_id=user_id, goal_id=goal_id)
 
-    if name is not None:
-        goal.name = name
-    if target_amount is not None:
-        goal.target_amount = target_amount
-    if current_amount is not None:
-        goal.current_amount = current_amount
-    if deadline_set:
-        # `deadline` pode ser uma data (definir/alterar) ou None (limpar o prazo).
-        goal.deadline = deadline
+    goal.name = name
+    goal.target_amount = target_amount
+    goal.current_amount = current_amount
+    goal.deadline = deadline
 
     db.flush()
     return _to_read(goal, today=date.today())

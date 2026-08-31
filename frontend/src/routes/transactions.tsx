@@ -1,11 +1,11 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeftRight, ChevronDown, FileText, Paperclip, X } from 'lucide-react'
+import { ArrowLeftRight, ChevronDown, Download, FileText, Paperclip, X } from 'lucide-react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { useLocation } from 'react-router-dom'
-import { ApiError } from '@/api/client'
+import { ApiError, errorMessage } from '@/api/client'
 import { PageHeader } from '@/components/page-header'
 import { QueryError } from '@/components/query-error'
 import { Button } from '@/components/ui/button'
@@ -29,6 +29,7 @@ import {
   startOfMonth,
   toIsoDate,
 } from '@/lib/month'
+import { formatMoney } from '@/lib/money'
 import { transactionSchema, type TransactionFormValues } from '@/features/transactions/schemas'
 import {
   TRANSACTION_TYPE_LABELS,
@@ -117,7 +118,7 @@ function TransactionForm({
         queryClient.invalidateQueries({ queryKey: ['transactions'] })
       }
     } catch (err) {
-      setFormError(err instanceof ApiError ? err.message : 'Não foi possível guardar a transação.')
+      setFormError(errorMessage(err, 'Não foi possível guardar a transação.'))
     }
   }
 
@@ -237,10 +238,6 @@ function TransactionForm({
       </div>
     </form>
   )
-}
-
-function formatMoney(value: string, currency: string) {
-  return new Intl.NumberFormat('pt-PT', { style: 'currency', currency }).format(Number(value))
 }
 
 // Sem categoria (transferência) usa um ícone genérico em vez do emoji.
@@ -733,10 +730,35 @@ export function TransactionsPage() {
     date_to: toIsoDate(endOfMonth(thisMonth)),
   })
 
+  const [exporting, setExporting] = useState(false)
+  const [exportError, setExportError] = useState(false)
+
   const goToMonth = (next: Date) => {
     setMonthCursor(next)
     setShowingAll(false)
     setFilters((f) => ({ ...f, date_from: toIsoDate(next), date_to: toIsoDate(endOfMonth(next)) }))
+  }
+
+  const handleExport = async () => {
+    setExporting(true)
+    setExportError(false)
+    try {
+      // Um <img>/<a> normal não leva o header Authorization — busca-se como blob
+      // autenticado e força-se o download com um <a download> temporário.
+      const blob = await transactionsApi.exportTransactionsCsv(filters)
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `centisible-transacoes-${toIsoDate(new Date())}.csv`
+      document.body.append(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(url)
+    } catch {
+      setExportError(true)
+    } finally {
+      setExporting(false)
+    }
   }
 
   const toggleShowAll = () => {
@@ -884,10 +906,24 @@ export function TransactionsPage() {
                 ›
               </Button>
             </div>
-            <Button variant="ghost" size="sm" onClick={toggleShowAll}>
-              {showingAll ? 'Ver só este mês' : 'Ver todas as transações'}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" onClick={toggleShowAll}>
+                {showingAll ? 'Ver só este mês' : 'Ver todas as transações'}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={exporting || !transactions?.length}
+                onClick={handleExport}
+              >
+                <Download className="mr-1.5 h-4 w-4" />
+                {exporting ? 'A exportar...' : 'Exportar CSV'}
+              </Button>
+            </div>
           </div>
+          {exportError && (
+            <p className="text-sm text-red-600">Não foi possível exportar. Tenta novamente.</p>
+          )}
 
           <Card>
             <button

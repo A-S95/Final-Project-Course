@@ -44,6 +44,12 @@ const LoginPage = lazyWithReload(() => import('@/routes/login').then((m) => ({ d
 const RegisterPage = lazyWithReload(() =>
   import('@/routes/register').then((m) => ({ default: m.RegisterPage })),
 )
+const ForgotPasswordPage = lazyWithReload(() =>
+  import('@/routes/forgot-password').then((m) => ({ default: m.ForgotPasswordPage })),
+)
+const ResetPasswordPage = lazyWithReload(() =>
+  import('@/routes/reset-password').then((m) => ({ default: m.ResetPasswordPage })),
+)
 const DashboardPage = lazyWithReload(() =>
   import('@/routes/dashboard').then((m) => ({ default: m.DashboardPage })),
 )
@@ -123,6 +129,22 @@ function AnimatedRoutes() {
           element={
             <PublicPageTransition>
               <RegisterPage />
+            </PublicPageTransition>
+          }
+        />
+        <Route
+          path="/recuperar-password"
+          element={
+            <PublicPageTransition>
+              <ForgotPasswordPage />
+            </PublicPageTransition>
+          }
+        />
+        <Route
+          path="/redefinir-password"
+          element={
+            <PublicPageTransition>
+              <ResetPasswordPage />
             </PublicPageTransition>
           }
         />

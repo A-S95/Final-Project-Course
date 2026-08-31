@@ -28,6 +28,10 @@ services:
       SECRET_KEY: "${SECRET_KEY:?define SECRET_KEY em .env.prod, ver README}"
       CORS_ORIGINS: "${CORS_ORIGINS:?define CORS_ORIGINS em .env.prod, ver .env.prod.example}"
       UVICORN_WORKERS: "${UVICORN_WORKERS:-2}"
+      # Recuperação de password — opcionais (sem RESEND_API_KEY o link só vai para os logs).
+      RESEND_API_KEY: "${RESEND_API_KEY:-}"
+      RESEND_FROM_EMAIL: "${RESEND_FROM_EMAIL:-CentiSible <onboarding@resend.dev>}"
+      FRONTEND_BASE_URL: "${FRONTEND_BASE_URL:-http://localhost:5173}"
     ports:
       - "8000:8000"
     volumes:

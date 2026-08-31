@@ -371,3 +371,64 @@ def test_deleting_category_with_transactions_returns_409(client: TestClient) -> 
 
 def test_transactions_require_authentication(client: TestClient) -> None:
     assert client.get(TRANSACTIONS_URL).status_code == 401
+
+
+def test_export_csv_returns_attachment_with_the_users_transactions(client: TestClient) -> None:
+    headers = register_and_get_headers(client)
+    account = create_account(client, headers, name="Conta Principal", initial_balance="0.00")
+    category = create_category(client, headers, name="Alimentação", type="EXPENSE")
+    client.post(
+        TRANSACTIONS_URL,
+        json={
+            "account_id": account["id"],
+            "category_id": category["id"],
+            "type": "EXPENSE",
+            "amount": "12.34",
+            "description": "Café com acentuação: pão",
+            "date": "2026-08-10",
+        },
+        headers=headers,
+    )
+
+    response = client.get(f"{TRANSACTIONS_URL}/export", headers=headers)
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/csv")
+    assert "attachment" in response.headers["content-disposition"]
+    assert ".csv" in response.headers["content-disposition"]
+
+    body = response.content.decode("utf-8-sig")  # tolera o BOM
+    lines = body.splitlines()
+    assert lines[0] == "Data;Tipo;Descrição;Valor;Conta;Conta destino;Categoria;Partilhada"
+    expected_row = (
+        "2026-08-10;Despesa;Café com acentuação: pão;12,34;Conta Principal;;Alimentação;Não"
+    )
+    assert lines[1] == expected_row
+
+
+def test_export_csv_only_includes_the_authenticated_users_transactions(client: TestClient) -> None:
+    alice = register_and_get_headers(client, email="alice.export@example.com")
+    a_account = create_account(client, alice)
+    a_category = create_category(client, alice, type="EXPENSE")
+    client.post(
+        TRANSACTIONS_URL,
+        json={
+            "account_id": a_account["id"],
+            "category_id": a_category["id"],
+            "type": "EXPENSE",
+            "amount": "99.00",
+            "description": "segredo da alice",
+            "date": "2026-08-01",
+        },
+        headers=alice,
+    )
+
+    bob = register_and_get_headers(client, email="bob.export@example.com")
+    body = client.get(f"{TRANSACTIONS_URL}/export", headers=bob).content.decode("utf-8-sig")
+
+    assert "segredo da alice" not in body
+    assert len(body.splitlines()) == 1  # só o cabeçalho
+
+
+def test_export_csv_requires_authentication(client: TestClient) -> None:
+    assert client.get(f"{TRANSACTIONS_URL}/export").status_code == 401

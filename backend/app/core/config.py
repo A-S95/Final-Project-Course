@@ -27,6 +27,13 @@ class Settings(BaseSettings):
 
     uploads_dir: str = "uploads"  # relativo ao cwd; ver volume uploads_data no compose
 
+    # Recuperação de password. Sem RESEND_API_KEY o email é escrito no log em vez
+    # de enviado (dev/testes funcionam sem configurar nada — ver app/core/email.py).
+    resend_api_key: str = ""
+    resend_from_email: str = "CentiSible <onboarding@resend.dev>"
+    frontend_base_url: str = "http://localhost:5173"
+    password_reset_token_expire_minutes: int = 60
+
     @property
     def is_production(self) -> bool:
         return self.environment.lower() not in ("development", "dev", "local", "test")

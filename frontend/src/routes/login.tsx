@@ -88,6 +88,14 @@ export function LoginPage() {
                   <p className="text-sm text-red-600">{errors.password.message}</p>
                 )}
               </div>
+              <div className="-mt-1 text-right">
+                <Link
+                  to="/recuperar-password"
+                  className="text-sm text-ink-muted underline hover:text-ink"
+                >
+                  Esqueceste-te da password?
+                </Link>
+              </div>
               {formError && <p className="text-sm text-red-600">{formError}</p>}
               <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting ? 'A entrar...' : 'Entrar'}

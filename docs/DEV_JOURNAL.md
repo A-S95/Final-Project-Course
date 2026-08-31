@@ -30,7 +30,7 @@
 - **Stack de produção** (`docker-compose.prod.yml`) construída e validada manualmente numa sessão anterior. Ver `README.md` (secção "Deployment").
 - **Correções de ambiente já embutidas** (não repetir): Vite com `usePolling: true` no Docker Windows (Fase 3); `bcrypt` chamado diretamente em vez de `passlib` (Fase 2); `join_transaction_mode="create_savepoint"` nos testes (Fase 2).
 
-**Base de dados**: 11 tabelas, migrações Alembic até `d1f4a2c6b8e3` (`add revoked_at to refresh_tokens` — 2026-08-31, ver entrada desse dia; ainda por aplicar com `alembic upgrade head`). Tabelas: `users`, `refresh_tokens`, `accounts`, `categories`, `transactions`, `households`, `household_members`, `household_invites`, `budgets`, `recurring_expenses`, `goals`.
+**Base de dados**: 12 tabelas, migrações Alembic até `e2c9a7f4b1d6` (`create password_reset_tokens table` — 2026-08-31). Tabelas: `users`, `refresh_tokens`, `password_reset_tokens`, `accounts`, `categories`, `transactions`, `households`, `household_members`, `household_invites`, `budgets`, `recurring_expenses`, `goals`.
 
 **Dependências novas nesta ronda**: nenhuma — a reformulação visual usa o `motion` que já estava instalado desde a Fase 0 mas que nunca tinha usado (0 animações na app antes desta sessão).
 
@@ -54,6 +54,101 @@ cd frontend && npm run test:e2e            # 9 passed (precisa do docker compose
 **Nova funcionalidade planeada — Households (agregado familiar)**: adicionei ao roadmap como Fase 7 (a seguir ao Dashboard v1). Ver `ARCHITECTURE.md` secções 2, 4, 5 e 8 para o desenho completo.
 
 **Onde está tudo**: projeto em `C:\Users\anton\Desktop\Projeto final\` — `backend/` (FastAPI), `frontend/` (React/Vite), `docs/ARCHITECTURE.md` (arquitetura/ERD/roadmap), este ficheiro (`docs/DEV_JOURNAL.md`, decisões e histórico).
+
+---
+
+## 2026-08-31 — Limpeza de complexidade desnecessária (mesmas funcionalidades, menos código)
+
+Revi o projeto todo à procura de complexidade que não valia o que custava. Quatro coisas, nenhuma muda funcionalidade.
+
+### A. 58 blocos `try/except` nos routers → 1 handler central
+
+Cada endpoint traduzia à mão as exceções de domínio em `HTTPException`, o mesmo padrão repetido 58 vezes:
+
+```python
+try:
+    budget = budget_service.create_budget(...)
+except CategoryNotFoundError as exc:
+    raise HTTPException(404, "Categoria não encontrada.") from exc
+except BudgetAlreadyExistsError as exc:
+    raise HTTPException(409, "Já existe um orçamento...") from exc
+```
+
+Dei a todas as exceções de domínio uma base `DomainError` com `status_code` + `detail` de classe (e um `__init__(detail)` para as ~5 cujo texto depende do contexto), e registei **um** `@app.exception_handler(DomainError)` em `main.py`. Os routers ficam assim:
+
+```python
+budget = budget_service.create_budget(...)
+db.commit()
+return budget
+```
+
+**Removeu ~250 linhas** e todos os imports de exceções dos routers. As mensagens de erro passaram a viver só em `exceptions.py`, não espalhadas. `auth.py` mantém o `try/except` no `/refresh` (esse mexe no cookie e faz `db.commit()` extra — não é só traduzir um erro); o resto de `auth.py` também passou pelo handler. Efeito colateral simpático: `transactions.py` apanhava `(AccountNotFoundError, CategoryNotFoundError)` com uma mensagem combinada ("Conta ou categoria não encontrada.") — agora cada uma dá a sua, mais precisa.
+
+### B. `AccountUpdate` / `CategoryUpdate` / `GoalUpdate`: fim do update parcial
+
+Estes três schemas tinham todos os campos `| None` e o `account_service` tinha um `card_expiration_date_set` / `model_fields_set` para distinguir "campo omitido" de "enviado como null". **O frontend nunca fez um update parcial** — o `toAccountInput`/`toInput` devolvem sempre o objeto completo, tal como `TransactionUpdate` já assumia de propósito ("a UI reenvia sempre o formulário completo").
+
+Tornei os três schemas completos (campos obrigatórios). Removeu o plumbing do `_set`, os `if x is not None` nos serviços, o `Partial<>` no frontend, **e corrigiu um bug latente**: antes não dava para limpar o ícone/cor de uma categoria nem a validade/plafond de uma conta de volta a vazio (`if icon is not None` ignorava o `null`). Os testes que enviavam corpos parciais passaram a usar helpers (`account_update_body(account, **changes)` etc.) que partem do objeto atual.
+
+### C. Duplicação de helpers no frontend
+
+- `formatMoney` (**7 cópias** idênticas) → `lib/money.ts`
+- `errorMessage` (**4 cópias**) → `api/client.ts` (junto do `ApiError`)
+- `AMOUNT_RE` (`/^\d+(\.\d{1,2})?$/`, **3 cópias**) → `lib/money.ts`
+
+Aproveitei para trocar os `err instanceof ApiError ? err.message : '...'` soltos por `errorMessage(err, '...')`.
+
+### D. Animação de linha de lista repetida ×5 → `<AnimatedListItem>`
+
+O mesmo `motion.div` (fade + slide com stagger por índice, levantar no hover, respeita `prefers-reduced-motion`) estava copiado nas linhas de contas, categorias, objetivos, orçamentos e recorrentes. Um componente com prop `index` + `className` substitui as 5. Padronizei o stagger para `index * 0.04` (as variações 0.04/0.05 eram impercetíveis). Os cartões do dashboard/histórico/agregado ficaram como estavam — têm durações e propósitos diferentes, não são "linhas de lista".
+
+**Validação**: backend `ruff` limpo, `pytest` **246 passed** (a única falha continua a ser a ambiental do `test_refresh_token_is_stored_hashed_not_in_plaintext`). Frontend `tsc`/`oxlint`/`build` limpos. Smoke test manual do handler de exceções (404 "Conta não encontrada." sem `try/except` no router) e do update completo. E2E a correr. **Não fiz** (decisão consciente): tirar as funções de serviço que são só passagem para o repositório (parte a consistência "API → serviço → repositório" que defendo no `ARCHITECTURE.md`), nem dividir o `transactions.tsx` de 1086 linhas (é UI completa, não over-engineered — dividir só muda de sítio).
+
+---
+
+## 2026-08-31 — Recuperação de password, cabeçalhos de segurança, exportar CSV
+
+Três coisas que faltavam a uma app "a sério", escolhidas de uma lista maior de pontos em aberto (ver `ARCHITECTURE.md` §9). A dos recibos ficou só decidida, não implementada (ver ao fundo).
+
+### Recuperação de password ("esqueci-me da password")
+
+Era o maior buraco funcional: se um amigo esquecesse a password, a conta ficava **inacessível para sempre**. Agora há um fluxo completo.
+
+**Envio de email — abstração com dois backends** (`app/core/email.py`): sem `RESEND_API_KEY` (dev e testes) o email é **escrito no log** em vez de enviado — o fluxo funciona localmente sem configurar nada, basta ler o link nos logs. Com a chave (produção), usa a **API HTTP do Resend** (3000 emails/mês grátis) via `urllib` da stdlib — **sem dependência nova**. Um email que falha a enviar é registado e o pedido do utilizador segue à mesma (não rebenta).
+
+**Tokens** (`password_reset_tokens`, migração `e2c9a7f4b1d6`): opacos, de alta entropia (mesmo gerador dos refresh tokens), guardados **só como hash SHA-256** — refatorei `hash_refresh_token` para um `hash_token` genérico que ambos usam. Expiram em 1h, **uso único** (`used_at`), e **um novo pedido invalida os anteriores** (`delete_all_for_user`) — só o link mais recente funciona.
+
+**Endpoints** (`/api/v1/auth/password-reset/request` e `/confirm`): o `request` responde **sempre 202 com a mesma mensagem**, exista ou não a conta — não revela que emails estão registados (enumeração). Rate limit 5/hora e 10/hora. Ao repor a password com sucesso, **revoga todos os refresh tokens do utilizador** (`revoke_all_for_user`) — se a conta estava comprometida, o atacante perde o acesso — e limpa o cookie de sessão.
+
+**Frontend**: duas páginas públicas novas (`/recuperar-password`, `/redefinir-password?token=...`), link "Esqueceste-te da password?" no login, validação com `confirm` de password. `resetPasswordSchema` usa `.refine` para as duas passwords coincidirem.
+
+**Limpeza**: a tarefa de fundo das 24h agora apaga também os reset tokens expirados (renomeei `_cleanup_refresh_tokens_*` → `_cleanup_expired_tokens_*`).
+
+**Testes**: 9 backend — fluxo completo (password antiga deixa de servir, nova funciona), 202 para email desconhecido, token não reutilizável, novo pedido invalida o anterior, token expirado rejeitado, sessões revogadas. Extraio o token dos logs (modo consola) com um regex, para testar ponta a ponta incluindo o conteúdo do email.
+
+### Cabeçalhos de segurança HTTP
+
+Para uma app de finanças, era dos primeiros pontos que um avaliador pica, e não existia nenhum.
+
+**Backend** (`app/core/security_headers.py`, middleware): `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Content-Security-Policy: default-src 'none'; frame-ancestors 'none'; base-uri 'none'` (a API só devolve JSON, a CSP relevante é só a que impede embutir num frame), `Referrer-Policy`, `Cross-Origin-Opener-Policy: same-origin`, `Permissions-Policy` (desativa geolocalização/câmara/etc.). **`Strict-Transport-Security` só em produção** — em localhost (http) forçaria o browser a tentar https.
+
+**Frontend** (`frontend/vercel.json`): a Vercel serve HTML navegável, por isso a CSP é a sério — `default-src 'self'`, `script-src 'self'` (movi o `<script>` inline do tema para `public/theme-init.js` e pus `injectRegister: 'script'` no vite-plugin-pwa para não haver **nenhum** script inline), `style-src 'self' 'unsafe-inline'` (o `motion`/Recharts usam estilos inline), `connect-src` só para a própria origem + a API na Render, `frame-ancestors 'none'`. **Fonte única**: o `vite.config.ts` lê o `vercel.json` e deriva versões para o `npm run dev`/`preview`, para as violações de CSP aparecerem já em local — apanhei assim que o dev server do Vite injeta scripts inline (preâmbulo do React Refresh) e precisa de `script-src` relaxado só em dev; o `preview` (build real) mantém o `'self'` estrito. Verifiquei o build de produção com um script Playwright — 0 violações de CSP em landing/login/registo/dashboard (gráficos)/histórico/transações, e a fonte do Google Fonts a carregar na mesma.
+
+**Testes**: 3 backend (cabeçalhos presentes em todas as respostas, incluindo erros; HSTS ausente fora de produção).
+
+### Exportar transações em CSV
+
+**Backend** (`GET /api/v1/transactions/export`): mesmos filtros da listagem — "exporta o que estás a ver". Separador `;` e **vírgula decimal** (o que o Excel em português espera), **BOM UTF-8** (senão o Excel no Windows mostra "Ã§" em vez de "ç"). Colunas com nomes de conta/categoria resolvidos, não IDs.
+
+**Frontend**: botão "Exportar CSV" na página de Transações. Como um `<a download>` normal não leva o header `Authorization`, busca-se o ficheiro como **blob autenticado** (`fetchBlob`) e força-se o download com um `<a>` temporário + `URL.createObjectURL`.
+
+**Testes**: 3 backend (anexo com o cabeçalho certo e uma linha de dados exata com acentos; só as transações do próprio utilizador; exige autenticação).
+
+### Recibos — decidido, não implementado
+
+O problema real: a Render no plano grátis não tem disco persistente, por isso um recibo anexado **não sobrevive a um reinício do container**. Decisão: **mover o ficheiro do disco para uma coluna `bytea` no Postgres** — zero infraestrutura nova, funciona já na Render+Neon, e baixa-se o limite de 8MB para ~2MB (o tier grátis da Neon são 0.5GB). Alternativa que rejeitei: Cloudflare R2 (S3) — é a solução "a sério" e melhor para o CV, mas custa uma dependência nova (boto3), credenciais, e ~meio dia. Fica para uma próxima sessão.
+
+**Validação global**: backend `ruff` limpo, `pytest` **246 passed** (+16 testes novos; a única falha é a conhecida do `test_refresh_token_is_stored_hashed_not_in_plaintext`, ambiental — precisa de `TRUNCATE refresh_tokens` antes por causa de sessões manuais). Frontend `tsc`/`oxlint`/`build` limpos. Migrações Alembic até `e2c9a7f4b1d6`. **Para produção na Render**: definir `RESEND_API_KEY` e `FRONTEND_BASE_URL` (senão o reset funciona mas o link só vai para os logs).
 
 ---
 

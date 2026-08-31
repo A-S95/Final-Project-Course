@@ -3,6 +3,7 @@ from app.models.budget import Budget
 from app.models.category import Category, CategoryType
 from app.models.goal import Goal
 from app.models.household import Household, HouseholdInvite, HouseholdMember, InviteStatus
+from app.models.password_reset_token import PasswordResetToken
 from app.models.recurring_expense import RecurringExpense, RecurringFrequency
 from app.models.refresh_token import RefreshToken
 from app.models.transaction import Transaction, TransactionType
@@ -19,6 +20,7 @@ __all__ = [
     "HouseholdInvite",
     "HouseholdMember",
     "InviteStatus",
+    "PasswordResetToken",
     "RecurringExpense",
     "RecurringFrequency",
     "RefreshToken",

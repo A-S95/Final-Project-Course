@@ -14,10 +14,13 @@ class CategoryCreate(BaseModel):
 
 
 class CategoryUpdate(BaseModel):
-    name: str | None = Field(default=None, min_length=1, max_length=100)
-    type: CategoryType | None = None
-    icon: str | None = Field(default=None, max_length=50)
-    color: str | None = Field(default=None, max_length=30)
+    """Formulário completo, como `TransactionUpdate` — a UI reenvia sempre tudo.
+    `null` em `icon`/`color` limpa o valor."""
+
+    name: str = Field(min_length=1, max_length=100)
+    type: CategoryType
+    icon: str | None = Field(max_length=50)
+    color: str | None = Field(max_length=30)
 
 
 class CategoryRead(BaseModel):

@@ -37,11 +37,15 @@ def generate_refresh_token() -> str:
     return secrets.token_urlsafe(64)
 
 
-def hash_refresh_token(token: str) -> str:
-    """SHA-256, não bcrypt: o refresh token já é aleatório de alta entropia
-    (512 bits), ao contrário de uma password escolhida por um humano — não há
-    ataque de força bruta/dicionário a mitigar, por isso não se justifica o
-    custo computacional de um hash lento. Guardar em claro é que nunca seria
-    aceitável (um leak da tabela `refresh_tokens` daria login direto).
+def hash_token(token: str) -> str:
+    """SHA-256, não bcrypt: estes tokens (refresh, reset de password) já são
+    aleatórios de alta entropia, ao contrário de uma password escolhida por um
+    humano — não há força bruta/dicionário a mitigar, por isso não se justifica o
+    custo de um hash lento. Guardar em claro é que nunca seria aceitável (um leak
+    da tabela daria acesso direto).
     """
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def hash_refresh_token(token: str) -> str:
+    return hash_token(token)

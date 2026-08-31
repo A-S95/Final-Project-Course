@@ -1,19 +1,11 @@
 import uuid
 from datetime import date
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, Query, UploadFile, status
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
-from app.core.exceptions import (
-    AccountNotFoundError,
-    CategoryNotFoundError,
-    InvalidReceiptError,
-    InvalidTransactionError,
-    ReceiptNotFoundError,
-    TransactionNotFoundError,
-)
 from app.db.session import get_db
 from app.models.transaction import TransactionType
 from app.models.user import User
@@ -45,32 +37,51 @@ def list_transactions(
     return [TransactionRead.model_validate(transaction) for transaction in transactions]
 
 
+@router.get("/export")
+def export_transactions(
+    account_id: uuid.UUID | None = None,
+    category_id: uuid.UUID | None = None,
+    type: TransactionType | None = None,
+    date_from: date | None = Query(default=None),
+    date_to: date | None = Query(default=None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Response:
+    content = transaction_service.export_transactions_csv(
+        db,
+        user_id=current_user.id,
+        account_id=account_id,
+        category_id=category_id,
+        type=type,
+        date_from=date_from,
+        date_to=date_to,
+    )
+    filename = f"centisible-transacoes-{date.today().isoformat()}.csv"
+    return Response(
+        content=content,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 @router.post("", response_model=TransactionRead, status_code=status.HTTP_201_CREATED)
 def create_transaction(
     payload: TransactionCreate,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> TransactionRead:
-    try:
-        transaction = transaction_service.create_transaction(
-            db,
-            user_id=current_user.id,
-            account_id=payload.account_id,
-            destination_account_id=payload.destination_account_id,
-            category_id=payload.category_id,
-            type=payload.type,
-            amount=payload.amount,
-            description=payload.description,
-            date=payload.date,
-            is_shared=payload.is_shared,
-        )
-    except (AccountNotFoundError, CategoryNotFoundError) as exc:
-        raise HTTPException(
-            status.HTTP_404_NOT_FOUND, "Conta ou categoria não encontrada."
-        ) from exc
-    except InvalidTransactionError as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, exc.message) from exc
-
+    transaction = transaction_service.create_transaction(
+        db,
+        user_id=current_user.id,
+        account_id=payload.account_id,
+        destination_account_id=payload.destination_account_id,
+        category_id=payload.category_id,
+        type=payload.type,
+        amount=payload.amount,
+        description=payload.description,
+        date=payload.date,
+        is_shared=payload.is_shared,
+    )
     db.commit()
     return TransactionRead.model_validate(transaction)
 
@@ -82,29 +93,19 @@ def update_transaction(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> TransactionRead:
-    try:
-        transaction = transaction_service.update_transaction(
-            db,
-            user_id=current_user.id,
-            transaction_id=transaction_id,
-            account_id=payload.account_id,
-            destination_account_id=payload.destination_account_id,
-            category_id=payload.category_id,
-            type=payload.type,
-            amount=payload.amount,
-            description=payload.description,
-            date=payload.date,
-            is_shared=payload.is_shared,
-        )
-    except TransactionNotFoundError as exc:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Transação não encontrada.") from exc
-    except (AccountNotFoundError, CategoryNotFoundError) as exc:
-        raise HTTPException(
-            status.HTTP_404_NOT_FOUND, "Conta ou categoria não encontrada."
-        ) from exc
-    except InvalidTransactionError as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, exc.message) from exc
-
+    transaction = transaction_service.update_transaction(
+        db,
+        user_id=current_user.id,
+        transaction_id=transaction_id,
+        account_id=payload.account_id,
+        destination_account_id=payload.destination_account_id,
+        category_id=payload.category_id,
+        type=payload.type,
+        amount=payload.amount,
+        description=payload.description,
+        date=payload.date,
+        is_shared=payload.is_shared,
+    )
     db.commit()
     return TransactionRead.model_validate(transaction)
 
@@ -115,13 +116,9 @@ def delete_transaction(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> None:
-    try:
-        transaction_service.delete_transaction(
-            db, user_id=current_user.id, transaction_id=transaction_id
-        )
-    except TransactionNotFoundError as exc:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Transação não encontrada.") from exc
-
+    transaction_service.delete_transaction(
+        db, user_id=current_user.id, transaction_id=transaction_id
+    )
     db.commit()
 
 
@@ -133,19 +130,13 @@ async def upload_receipt(
     db: Session = Depends(get_db),
 ) -> TransactionRead:
     content = await file.read()
-    try:
-        transaction = transaction_service.save_receipt(
-            db,
-            user_id=current_user.id,
-            transaction_id=transaction_id,
-            content=content,
-            content_type=file.content_type or "application/octet-stream",
-        )
-    except TransactionNotFoundError as exc:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Transação não encontrada.") from exc
-    except InvalidReceiptError as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, exc.message) from exc
-
+    transaction = transaction_service.save_receipt(
+        db,
+        user_id=current_user.id,
+        transaction_id=transaction_id,
+        content=content,
+        content_type=file.content_type or "application/octet-stream",
+    )
     db.commit()
     return TransactionRead.model_validate(transaction)
 
@@ -156,15 +147,9 @@ def download_receipt(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Response:
-    try:
-        content, content_type = transaction_service.get_receipt(
-            db, user_id=current_user.id, transaction_id=transaction_id
-        )
-    except TransactionNotFoundError as exc:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Transação não encontrada.") from exc
-    except ReceiptNotFoundError as exc:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Esta transação não tem recibo.") from exc
-
+    content, content_type = transaction_service.get_receipt(
+        db, user_id=current_user.id, transaction_id=transaction_id
+    )
     return Response(content=content, media_type=content_type)
 
 
@@ -174,14 +159,8 @@ def remove_receipt(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> TransactionRead:
-    try:
-        transaction = transaction_service.delete_receipt(
-            db, user_id=current_user.id, transaction_id=transaction_id
-        )
-    except TransactionNotFoundError as exc:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Transação não encontrada.") from exc
-    except ReceiptNotFoundError as exc:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Esta transação não tem recibo.") from exc
-
+    transaction = transaction_service.delete_receipt(
+        db, user_id=current_user.id, transaction_id=transaction_id
+    )
     db.commit()
     return TransactionRead.model_validate(transaction)

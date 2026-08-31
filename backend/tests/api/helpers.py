@@ -51,3 +51,23 @@ def create_category(
     response = client.post(CATEGORIES_URL, json={"name": name, "type": type}, headers=headers)
     assert response.status_code == 201
     return response.json()
+
+
+# Os PATCH de conta/categoria/objetivo levam o formulário completo (a UI reenvia
+# tudo — ver schemas). Estes helpers partem do objeto atual e aplicam só as
+# alterações do teste.
+def account_update_body(account: dict, **changes: object) -> dict:
+    body = {
+        k: account[k]
+        for k in ("name", "type", "initial_balance", "card_expiration_date", "card_plafond")
+    }
+    return {**body, **changes}
+
+
+def category_update_body(category: dict, **changes: object) -> dict:
+    return {**{k: category[k] for k in ("name", "type", "icon", "color")}, **changes}
+
+
+def goal_update_body(goal: dict, **changes: object) -> dict:
+    keys = ("name", "target_amount", "current_amount", "deadline")
+    return {**{k: goal[k] for k in keys}, **changes}

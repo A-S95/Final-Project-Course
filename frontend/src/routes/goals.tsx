@@ -3,7 +3,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { motion, useReducedMotion } from 'motion/react'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { ApiError } from '@/api/client'
+import { errorMessage } from '@/api/client'
+import { AnimatedListItem } from '@/components/animated-list-item'
 import { AnimatedNumber } from '@/components/animated-number'
 import { PageHeader } from '@/components/page-header'
 import { QueryError } from '@/components/query-error'
@@ -15,6 +16,7 @@ import { useAuth } from '@/features/auth/use-auth'
 import * as goalsApi from '@/features/goals/api'
 import { goalSchema, type GoalFormValues } from '@/features/goals/schemas'
 import type { Goal, GoalInput } from '@/features/goals/types'
+import { AMOUNT_RE, formatMoney } from '@/lib/money'
 
 const EMPTY_VALUES: GoalFormValues = {
   name: '',
@@ -22,8 +24,6 @@ const EMPTY_VALUES: GoalFormValues = {
   current_amount: '',
   deadline: '',
 }
-
-const AMOUNT_RE = /^\d+(\.\d{1,2})?$/
 
 function toFormValues(goal: Goal): GoalFormValues {
   return {
@@ -41,14 +41,6 @@ function toInput(values: GoalFormValues): GoalInput {
     current_amount: values.current_amount || '0',
     deadline: values.deadline || null,
   }
-}
-
-function formatMoney(value: string | number, currency: string) {
-  return new Intl.NumberFormat('pt-PT', { style: 'currency', currency }).format(Number(value))
-}
-
-function errorMessage(err: unknown, fallback: string) {
-  return err instanceof ApiError ? err.message : fallback
 }
 
 function GoalForm({
@@ -200,7 +192,6 @@ function ContributeForm({ goal }: { goal: Goal }) {
 }
 
 function GoalRow({ goal, currency, index }: { goal: Goal; currency: string; index: number }) {
-  const reduceMotion = useReducedMotion()
   const queryClient = useQueryClient()
   const [isEditing, setIsEditing] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
@@ -237,11 +228,8 @@ function GoalRow({ goal, currency, index }: { goal: Goal; currency: string; inde
   }
 
   return (
-    <motion.div
-      initial={reduceMotion ? false : { opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, delay: index * 0.05, ease: 'easeOut' }}
-      whileHover={reduceMotion ? undefined : { y: -2 }}
+    <AnimatedListItem
+      index={index}
       className="flex flex-col gap-3 rounded-2xl border border-border bg-surface-raised p-5 transition-shadow hover:shadow-md"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -308,7 +296,7 @@ function GoalRow({ goal, currency, index }: { goal: Goal; currency: string; inde
       </div>
 
       {deleteError && <p className="text-sm text-red-600">{deleteError}</p>}
-    </motion.div>
+    </AnimatedListItem>
   )
 }
 

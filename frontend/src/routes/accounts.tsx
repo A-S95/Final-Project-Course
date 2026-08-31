@@ -1,9 +1,9 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { motion, useReducedMotion } from 'motion/react'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { ApiError } from '@/api/client'
+import { errorMessage } from '@/api/client'
+import { AnimatedListItem } from '@/components/animated-list-item'
 import { PageHeader } from '@/components/page-header'
 import { QueryError } from '@/components/query-error'
 import { Button } from '@/components/ui/button'
@@ -23,10 +23,7 @@ import {
   type AccountType,
 } from '@/features/accounts/types'
 import { useAuth } from '@/features/auth/use-auth'
-
-function formatMoney(value: string, currency: string) {
-  return new Intl.NumberFormat('pt-PT', { style: 'currency', currency }).format(Number(value))
-}
+import { formatMoney } from '@/lib/money'
 
 // Form usa '' para "não definido" (sem null nativo em inputs); API usa null.
 function toAccountInput(values: AccountFormValues): AccountInput {
@@ -72,7 +69,7 @@ function AccountForm({
     try {
       await onSubmit(values)
     } catch (err) {
-      setFormError(err instanceof ApiError ? err.message : 'Não foi possível guardar a conta.')
+      setFormError(errorMessage(err, 'Não foi possível guardar a conta.'))
     }
   }
 
@@ -149,7 +146,6 @@ function AccountRow({
   currency: string
   index: number
 }) {
-  const reduceMotion = useReducedMotion()
   const queryClient = useQueryClient()
   const [isEditing, setIsEditing] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
@@ -168,7 +164,7 @@ function AccountRow({
     mutationFn: () => accountsApi.deleteAccount(account.id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['accounts'] }),
     onError: (err) => {
-      setDeleteError(err instanceof ApiError ? err.message : 'Não foi possível eliminar a conta.')
+      setDeleteError(errorMessage(err, 'Não foi possível eliminar a conta.'))
       setConfirmingDelete(false)
     },
   })
@@ -195,11 +191,8 @@ function AccountRow({
   const Icon = ACCOUNT_TYPE_ICONS[account.type]
 
   return (
-    <motion.div
-      initial={reduceMotion ? false : { opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, delay: index * 0.04, ease: 'easeOut' }}
-      whileHover={reduceMotion ? undefined : { y: -2 }}
+    <AnimatedListItem
+      index={index}
       className="flex flex-col gap-4 rounded-2xl border border-border bg-surface-raised p-5 transition-shadow hover:shadow-md"
     >
       <div className="flex items-center gap-3">
@@ -254,7 +247,7 @@ function AccountRow({
           </>
         )}
       </div>
-    </motion.div>
+    </AnimatedListItem>
   )
 }
 

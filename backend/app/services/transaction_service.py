@@ -1,3 +1,5 @@
+import csv
+import io
 import uuid
 from datetime import date
 from decimal import Decimal
@@ -21,6 +23,12 @@ from app.services import account_service, category_service
 # Foto ao talão ou fatura digitalizada — os dois casos reais.
 ALLOWED_RECEIPT_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp", "application/pdf"}
 MAX_RECEIPT_SIZE_BYTES = 8 * 1024 * 1024  # chega para foto/PDF, evita encher o disco
+
+_TYPE_LABELS = {
+    TransactionType.INCOME: "Receita",
+    TransactionType.EXPENSE: "Despesa",
+    TransactionType.TRANSFER: "Transferência",
+}
 
 
 def _receipt_path(transaction_id: uuid.UUID) -> Path:
@@ -95,6 +103,54 @@ def list_transactions(
         date_from=date_from,
         date_to=date_to,
     )
+
+
+def export_transactions_csv(
+    db: Session,
+    *,
+    user_id: uuid.UUID,
+    account_id: uuid.UUID | None = None,
+    category_id: uuid.UUID | None = None,
+    type: TransactionType | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+) -> bytes:
+    """CSV das transações, com os mesmos filtros da listagem. Separador `;` e
+    vírgula decimal — o que o Excel em português espera ao abrir o ficheiro."""
+    transactions = list_transactions(
+        db,
+        user_id=user_id,
+        account_id=account_id,
+        category_id=category_id,
+        type=type,
+        date_from=date_from,
+        date_to=date_to,
+    )
+    account_names = {a.id: a.name for a in account_service.list_accounts(db, user_id=user_id)}
+    category_names = {c.id: c.name for c in category_service.list_categories(db, user_id=user_id)}
+
+    buffer = io.StringIO()
+    writer = csv.writer(buffer, delimiter=";")
+    writer.writerow(
+        ["Data", "Tipo", "Descrição", "Valor", "Conta", "Conta destino", "Categoria", "Partilhada"]
+    )
+    for t in transactions:
+        writer.writerow(
+            [
+                t.date.isoformat(),
+                _TYPE_LABELS[t.type],
+                t.description or "",
+                f"{t.amount:.2f}".replace(".", ","),
+                account_names.get(t.account_id, ""),
+                account_names.get(t.destination_account_id, "")
+                if t.destination_account_id
+                else "",
+                category_names.get(t.category_id, "") if t.category_id else "",
+                "Sim" if t.is_shared else "Não",
+            ]
+        )
+    # BOM UTF-8: sem isto o Excel no Windows abre os acentos como "Ã§".
+    return b"\xef\xbb\xbf" + buffer.getvalue().encode("utf-8")
 
 
 def get_transaction(db: Session, *, user_id: uuid.UUID, transaction_id: uuid.UUID) -> Transaction:

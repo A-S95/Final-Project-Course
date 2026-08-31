@@ -24,46 +24,51 @@ from app.api.v1 import (
     users,
 )
 from app.core.config import settings
+from app.core.exceptions import DomainError
 from app.core.logging import configure_logging, error_logger
 from app.core.rate_limit import limiter
+from app.core.security_headers import security_headers_middleware
 from app.db.session import SessionLocal
-from app.repositories import refresh_token_repository
+from app.repositories import password_reset_token_repository, refresh_token_repository
 
 configure_logging()
 
-# Uma vez por dia chega para manter `refresh_tokens` pequena, a esta escala.
-REFRESH_TOKEN_CLEANUP_INTERVAL_SECONDS = 24 * 60 * 60
+# Uma vez por dia chega para manter as tabelas de tokens pequenas, a esta escala.
+TOKEN_CLEANUP_INTERVAL_SECONDS = 24 * 60 * 60
 
 
-def _cleanup_refresh_tokens_once() -> None:
+def _cleanup_expired_tokens_once() -> None:
     db = SessionLocal()
     try:
-        deleted = refresh_token_repository.delete_expired(db)
+        refresh_deleted = refresh_token_repository.delete_expired(db)
+        reset_deleted = password_reset_token_repository.delete_expired(db)
         db.commit()
-        if deleted:
+        if refresh_deleted or reset_deleted:
             error_logger.info(
-                "Limpeza de refresh_tokens: %d token(s) expirado(s) removido(s).", deleted
+                "Limpeza de tokens: %d refresh + %d reset de password expirados removidos.",
+                refresh_deleted,
+                reset_deleted,
             )
     except Exception:
         db.rollback()
-        error_logger.exception("Falha na limpeza periódica de refresh_tokens.")
+        error_logger.exception("Falha na limpeza periódica de tokens.")
     finally:
         db.close()
 
 
-async def _cleanup_refresh_tokens_periodically() -> None:
-    """Tarefa de fundo: apaga refresh tokens expirados a cada 24h, correndo no próprio
-    processo (sem scheduler externo). `asyncio.to_thread` porque o trabalho em si é
-    síncrono (SQLAlchemy síncrono); chamá-lo direto bloquearia o event loop inteiro,
-    incluindo `/health`, até a query terminar."""
+async def _cleanup_expired_tokens_periodically() -> None:
+    """Tarefa de fundo: apaga tokens expirados (refresh + reset de password) a cada
+    24h, no próprio processo (sem scheduler externo). `asyncio.to_thread` porque o
+    trabalho é síncrono (SQLAlchemy síncrono); chamá-lo direto bloquearia o event
+    loop inteiro, incluindo `/health`, até a query terminar."""
     while True:
-        await asyncio.to_thread(_cleanup_refresh_tokens_once)
-        await asyncio.sleep(REFRESH_TOKEN_CLEANUP_INTERVAL_SECONDS)
+        await asyncio.to_thread(_cleanup_expired_tokens_once)
+        await asyncio.sleep(TOKEN_CLEANUP_INTERVAL_SECONDS)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    task = asyncio.create_task(_cleanup_refresh_tokens_periodically())
+    task = asyncio.create_task(_cleanup_expired_tokens_periodically())
     try:
         yield
     finally:
@@ -89,6 +94,13 @@ async def rate_limit_handler(request: Request, exc: RateLimitExceeded) -> JSONRe
         status_code=429,
         content={"detail": "Demasiados pedidos. Tenta novamente dentro de instantes."},
     )
+
+
+@app.exception_handler(DomainError)
+async def domain_error_handler(request: Request, exc: DomainError) -> JSONResponse:
+    """Erro de regra de negócio (4xx esperado) → resposta com o `detail` da exceção.
+    Evita repetir `try/except ... raise HTTPException` em cada endpoint."""
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
 
 
 @app.exception_handler(Exception)
@@ -117,6 +129,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.middleware("http")(security_headers_middleware)
 
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(users.router, prefix="/api/v1")

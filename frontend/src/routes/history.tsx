@@ -15,6 +15,7 @@ import {
 import { PageHeader } from '@/components/page-header'
 import { QueryError } from '@/components/query-error'
 import { Button } from '@/components/ui/button'
+import { formatMoney } from '@/lib/money'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import * as analyticsApi from '@/features/analytics/api'
 import type { MonthComparison } from '@/features/analytics/types'
@@ -27,10 +28,6 @@ import {
   startOfMonth,
   toIsoDate,
 } from '@/lib/month'
-
-function formatMoney(value: string | number, currency: string) {
-  return new Intl.NumberFormat('pt-PT', { style: 'currency', currency }).format(Number(value))
-}
 
 function ChangeRow({
   label,

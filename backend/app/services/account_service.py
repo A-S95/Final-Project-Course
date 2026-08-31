@@ -47,31 +47,22 @@ def update_account(
     *,
     user_id: uuid.UUID,
     account_id: uuid.UUID,
-    name: str | None,
-    type: AccountType | None,
-    initial_balance: Decimal | None,
-    card_expiration_date: date | None = None,
-    card_expiration_date_set: bool = False,
-    card_plafond: Decimal | None = None,
-    card_plafond_set: bool = False,
+    name: str,
+    type: AccountType,
+    initial_balance: Decimal,
+    card_expiration_date: date | None,
+    card_plafond: Decimal | None,
 ) -> Account:
     account = get_account(db, user_id=user_id, account_id=account_id)
 
-    if name is not None:
-        account.name = name
-    if type is not None:
-        account.type = type
-    if initial_balance is not None and initial_balance != account.initial_balance:
+    account.name = name
+    account.type = type
+    if initial_balance != account.initial_balance:
         # Aplica só a diferença, para preservar o efeito de transações já lançadas.
-        delta = initial_balance - account.initial_balance
-        account.current_balance += delta
+        account.current_balance += initial_balance - account.initial_balance
         account.initial_balance = initial_balance
-    # Estes dois aceitam `null` como destino válido, por isso o "foi enviado?"
-    # vem à parte do valor, ao contrário do padrão "None = não mexer" acima.
-    if card_expiration_date_set:
-        account.card_expiration_date = card_expiration_date
-    if card_plafond_set:
-        account.card_plafond = card_plafond
+    account.card_expiration_date = card_expiration_date
+    account.card_plafond = card_plafond
 
     db.flush()
     return account

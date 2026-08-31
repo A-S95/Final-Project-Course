@@ -20,3 +20,19 @@ export function loginUser(payload: { email: string; password: string }) {
 export function logoutUser() {
   return apiClient.post<void>('/api/v1/auth/logout', undefined, { skipAuthRetry: true })
 }
+
+export function requestPasswordReset(email: string) {
+  return apiClient.post<{ detail: string }>(
+    '/api/v1/auth/password-reset/request',
+    { email },
+    { skipAuthRetry: true },
+  )
+}
+
+export function confirmPasswordReset(token: string, password: string) {
+  return apiClient.post<{ detail: string }>(
+    '/api/v1/auth/password-reset/confirm',
+    { token, password },
+    { skipAuthRetry: true },
+  )
+}

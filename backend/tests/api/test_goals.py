@@ -2,7 +2,7 @@ from datetime import date, timedelta
 
 from fastapi.testclient import TestClient
 
-from tests.api.helpers import register_and_get_headers
+from tests.api.helpers import goal_update_body, register_and_get_headers
 
 GOALS_URL = "/api/v1/goals"
 
@@ -129,7 +129,9 @@ def test_update_goal_fields(client: TestClient) -> None:
 
     response = client.patch(
         f"{GOALS_URL}/{goal['id']}",
-        json={"name": "Carro novo", "target_amount": "8000.00", "current_amount": "2000.00"},
+        json=goal_update_body(
+            goal, name="Carro novo", target_amount="8000.00", current_amount="2000.00"
+        ),
         headers=headers,
     )
 
@@ -148,14 +150,18 @@ def test_update_can_clear_the_deadline(client: TestClient) -> None:
     assert goal["deadline"] == deadline
 
     cleared = client.patch(
-        f"{GOALS_URL}/{goal['id']}", json={"deadline": None}, headers=headers
+        f"{GOALS_URL}/{goal['id']}",
+        json=goal_update_body(goal, deadline=None),
+        headers=headers,
     ).json()
     assert cleared["deadline"] is None
     assert cleared["required_monthly_contribution"] is None
 
-    # Omitir `deadline` num PATCH seguinte não o volta a definir.
+    # Um PATCH seguinte que reenvia `deadline: null` mantém-no limpo.
     kept = client.patch(
-        f"{GOALS_URL}/{goal['id']}", json={"name": "Outro nome"}, headers=headers
+        f"{GOALS_URL}/{goal['id']}",
+        json=goal_update_body(cleared, name="Outro nome"),
+        headers=headers,
     ).json()
     assert kept["deadline"] is None
 
@@ -175,7 +181,7 @@ def test_goals_are_isolated_per_user(client: TestClient) -> None:
 
     assert client.get(GOALS_URL, headers=headers_b).json() == []
     assert client.patch(
-        f"{GOALS_URL}/{goal['id']}", json={"name": "x"}, headers=headers_b
+        f"{GOALS_URL}/{goal['id']}", json=goal_update_body(goal, name="x"), headers=headers_b
     ).status_code == 404
     assert client.post(
         f"{GOALS_URL}/{goal['id']}/contributions", json={"amount": "1"}, headers=headers_b

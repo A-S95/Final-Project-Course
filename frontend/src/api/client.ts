@@ -12,6 +12,11 @@ export class ApiError extends Error {
   }
 }
 
+/** Mensagem da API (`ApiError`) ou um fallback genérico para erros de rede/inesperados. */
+export function errorMessage(err: unknown, fallback: string): string {
+  return err instanceof ApiError ? err.message : fallback
+}
+
 // Falha transitória a renovar a sessão (rede em baixo, backend a acordar na Render,
 // ou corrida benigna resolvida com 409 pelo backend). NÃO significa sessão inválida —
 // quem chama deve voltar a tentar a operação, não deslogar.

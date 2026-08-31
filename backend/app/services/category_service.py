@@ -34,7 +34,7 @@ def create_category(
     color: str | None,
 ) -> Category:
     if category_repository.get_by_name_for_user(db, name, user_id) is not None:
-        raise CategoryNameAlreadyExistsError(name)
+        raise CategoryNameAlreadyExistsError
     return category_repository.create(
         db, user_id=user_id, name=name, type=type, icon=icon, color=color
     )
@@ -45,24 +45,22 @@ def update_category(
     *,
     user_id: uuid.UUID,
     category_id: uuid.UUID,
-    name: str | None,
-    type: CategoryType | None,
+    name: str,
+    type: CategoryType,
     icon: str | None,
     color: str | None,
 ) -> Category:
     category = get_category(db, user_id=user_id, category_id=category_id)
 
-    if name is not None and name != category.name:
+    if name != category.name:
         existing = category_repository.get_by_name_for_user(db, name, user_id)
         if existing is not None and existing.id != category.id:
-            raise CategoryNameAlreadyExistsError(name)
-        category.name = name
-    if type is not None:
-        category.type = type
-    if icon is not None:
-        category.icon = icon
-    if color is not None:
-        category.color = color
+            raise CategoryNameAlreadyExistsError
+
+    category.name = name
+    category.type = type
+    category.icon = icon
+    category.color = color
 
     db.flush()
     return category

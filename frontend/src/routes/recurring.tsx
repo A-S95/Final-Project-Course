@@ -1,9 +1,9 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { motion, useReducedMotion } from 'motion/react'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { ApiError } from '@/api/client'
+import { errorMessage } from '@/api/client'
+import { AnimatedListItem } from '@/components/animated-list-item'
 import { PageHeader } from '@/components/page-header'
 import { QueryError } from '@/components/query-error'
 import { Button } from '@/components/ui/button'
@@ -23,6 +23,7 @@ import {
   RECURRING_FREQUENCIES,
   type RecurringExpense,
 } from '@/features/recurring/types'
+import { formatMoney } from '@/lib/money'
 
 const today = () => new Date().toISOString().slice(0, 10)
 
@@ -46,14 +47,6 @@ function toFormValues(recurring: RecurringExpense): RecurringFormValues {
     next_occurrence: recurring.next_occurrence,
     active: recurring.active,
   }
-}
-
-function formatMoney(value: string, currency: string) {
-  return new Intl.NumberFormat('pt-PT', { style: 'currency', currency }).format(Number(value))
-}
-
-function errorMessage(err: unknown, fallback: string) {
-  return err instanceof ApiError ? err.message : fallback
 }
 
 function RecurringForm({
@@ -181,7 +174,6 @@ function RecurringRow({
   currency: string
   index: number
 }) {
-  const reduceMotion = useReducedMotion()
   const queryClient = useQueryClient()
   const [isEditing, setIsEditing] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
@@ -225,11 +217,8 @@ function RecurringRow({
   }
 
   return (
-    <motion.div
-      initial={reduceMotion ? false : { opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, delay: index * 0.04, ease: 'easeOut' }}
-      whileHover={reduceMotion ? undefined : { y: -2 }}
+    <AnimatedListItem
+      index={index}
       className="flex flex-col gap-3 rounded-2xl border border-border bg-surface-raised p-5 transition-shadow hover:shadow-md"
     >
       <div>
@@ -300,7 +289,7 @@ function RecurringRow({
       </div>
 
       {deleteError && <p className="text-sm text-red-600">{deleteError}</p>}
-    </motion.div>
+    </AnimatedListItem>
   )
 }
 

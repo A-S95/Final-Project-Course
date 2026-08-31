@@ -1,7 +1,8 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { motion, useReducedMotion } from 'motion/react'
 import { useMemo, useState } from 'react'
-import { ApiError } from '@/api/client'
+import { errorMessage } from '@/api/client'
+import { AnimatedListItem } from '@/components/animated-list-item'
 import { AnimatedNumber } from '@/components/animated-number'
 import { PageHeader } from '@/components/page-header'
 import { QueryError } from '@/components/query-error'
@@ -15,16 +16,7 @@ import * as budgetsApi from '@/features/budgets/api'
 import type { Budget } from '@/features/budgets/types'
 import * as categoriesApi from '@/features/categories/api'
 import { addMonths, isSameMonth, monthLabel, startOfMonth, toIsoDate } from '@/lib/month'
-
-const AMOUNT_RE = /^\d+(\.\d{1,2})?$/
-
-function formatMoney(value: string | number, currency: string) {
-  return new Intl.NumberFormat('pt-PT', { style: 'currency', currency }).format(Number(value))
-}
-
-function errorMessage(err: unknown, fallback: string) {
-  return err instanceof ApiError ? err.message : fallback
-}
+import { AMOUNT_RE, formatMoney } from '@/lib/money'
 
 function ProgressBar({ percentage }: { percentage: number }) {
   const reduceMotion = useReducedMotion()
@@ -52,7 +44,6 @@ function BudgetRow({
   currency: string
   index: number
 }) {
-  const reduceMotion = useReducedMotion()
   const queryClient = useQueryClient()
   const [editing, setEditing] = useState(false)
   const [amount, setAmount] = useState(budget.amount)
@@ -77,11 +68,8 @@ function BudgetRow({
   const over = Number(budget.remaining) < 0
 
   return (
-    <motion.div
-      initial={reduceMotion ? false : { opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, delay: index * 0.05, ease: 'easeOut' }}
-      whileHover={reduceMotion ? undefined : { y: -2 }}
+    <AnimatedListItem
+      index={index}
       className="flex flex-col gap-3 rounded-2xl border border-border bg-surface-raised p-5 transition-shadow hover:shadow-md"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -161,7 +149,7 @@ function BudgetRow({
         )}
       </div>
       {error && <p className="text-sm text-red-600">{error}</p>}
-    </motion.div>
+    </AnimatedListItem>
   )
 }
 

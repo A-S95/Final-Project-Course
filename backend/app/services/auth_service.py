@@ -6,6 +6,7 @@ from app.core.config import settings
 from app.core.exceptions import (
     EmailAlreadyRegisteredError,
     InvalidCredentialsError,
+    InvalidPasswordResetTokenError,
     InvalidRefreshTokenError,
     RefreshTokenRaceError,
 )
@@ -14,10 +15,15 @@ from app.core.security import (
     generate_refresh_token,
     hash_password,
     hash_refresh_token,
+    hash_token,
     verify_password,
 )
 from app.models.user import User
-from app.repositories import refresh_token_repository, user_repository
+from app.repositories import (
+    password_reset_token_repository,
+    refresh_token_repository,
+    user_repository,
+)
 
 
 def _issue_tokens(db: Session, user: User) -> tuple[str, str]:
@@ -32,7 +38,7 @@ def _issue_tokens(db: Session, user: User) -> tuple[str, str]:
 
 def register_user(db: Session, *, email: str, password: str, name: str) -> tuple[User, str, str]:
     if user_repository.get_by_email(db, email) is not None:
-        raise EmailAlreadyRegisteredError(email)
+        raise EmailAlreadyRegisteredError
     user = user_repository.create(db, email=email, password_hash=hash_password(password), name=name)
     access_token, refresh_token = _issue_tokens(db, user)
     return user, access_token, refresh_token
@@ -79,3 +85,40 @@ def logout(db: Session, *, refresh_token: str) -> None:
     stored = refresh_token_repository.get_by_hash(db, hash_refresh_token(refresh_token))
     if stored is not None and not stored.revoked:
         refresh_token_repository.revoke(db, stored)
+
+
+def request_password_reset(db: Session, *, email: str) -> tuple[User, str] | None:
+    """Cria um token de recuperação e devolve-o em claro para o router enviar por
+    email. Devolve `None` se o email não corresponder a nenhuma conta — o router
+    responde sempre igual (202), para não revelar que contas existem."""
+    user = user_repository.get_by_email(db, email)
+    if user is None:
+        return None
+
+    # Só o pedido mais recente vale — invalida quaisquer links anteriores.
+    password_reset_token_repository.delete_all_for_user(db, user.id)
+    raw_token = generate_refresh_token()  # mesmo gerador de alta entropia
+    expires_at = datetime.now(UTC) + timedelta(
+        minutes=settings.password_reset_token_expire_minutes
+    )
+    password_reset_token_repository.create(
+        db, user_id=user.id, token_hash=hash_token(raw_token), expires_at=expires_at
+    )
+    return user, raw_token
+
+
+def reset_password(db: Session, *, token: str, new_password: str) -> User:
+    stored = password_reset_token_repository.get_by_hash(db, hash_token(token))
+    if stored is None or stored.used_at is not None or stored.expires_at < datetime.now(UTC):
+        raise InvalidPasswordResetTokenError
+
+    user = user_repository.get_by_id(db, stored.user_id)
+    if user is None:
+        raise InvalidPasswordResetTokenError
+
+    user.password_hash = hash_password(new_password)
+    password_reset_token_repository.mark_used(db, stored)
+    # Repor a password termina todas as sessões — se a conta estava comprometida,
+    # o atacante deixa de ter acesso.
+    refresh_token_repository.revoke_all_for_user(db, user.id)
+    return user

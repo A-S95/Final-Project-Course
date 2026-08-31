@@ -2,15 +2,17 @@ from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.core.exceptions import (
-    EmailAlreadyRegisteredError,
-    InvalidCredentialsError,
-    InvalidRefreshTokenError,
-    RefreshTokenRaceError,
-)
+from app.core.email import password_reset_email_html, send_email
+from app.core.exceptions import InvalidRefreshTokenError, RefreshTokenRaceError
 from app.core.rate_limit import limiter
 from app.db.session import get_db
-from app.schemas.auth import LoginRequest, RegisterRequest, TokenResponse
+from app.schemas.auth import (
+    LoginRequest,
+    PasswordResetConfirm,
+    PasswordResetRequest,
+    RegisterRequest,
+    TokenResponse,
+)
 from app.schemas.user import UserRead
 from app.services import auth_service
 
@@ -46,15 +48,9 @@ def _clear_refresh_cookie(response: Response) -> None:
 def register(
     request: Request, payload: RegisterRequest, response: Response, db: Session = Depends(get_db)
 ) -> TokenResponse:
-    try:
-        user, access_token, refresh_token = auth_service.register_user(
-            db, email=payload.email, password=payload.password, name=payload.name
-        )
-    except EmailAlreadyRegisteredError as exc:
-        raise HTTPException(
-            status.HTTP_409_CONFLICT, "Já existe uma conta com este email."
-        ) from exc
-
+    user, access_token, refresh_token = auth_service.register_user(
+        db, email=payload.email, password=payload.password, name=payload.name
+    )
     db.commit()
     _set_refresh_cookie(response, refresh_token)
     return TokenResponse(access_token=access_token, user=UserRead.model_validate(user))
@@ -65,17 +61,52 @@ def register(
 def login(
     request: Request, payload: LoginRequest, response: Response, db: Session = Depends(get_db)
 ) -> TokenResponse:
-    try:
-        user, access_token, refresh_token = auth_service.authenticate(
-            db, email=payload.email, password=payload.password
-        )
-    except InvalidCredentialsError as exc:
-        # Mensagem genérica de propósito: evita enumeração de contas registadas.
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Email ou password inválidos.") from exc
-
+    # InvalidCredentialsError → 401 "Email ou password inválidos." (mensagem genérica
+    # de propósito, evita enumeração de contas) via o handler em main.py.
+    user, access_token, refresh_token = auth_service.authenticate(
+        db, email=payload.email, password=payload.password
+    )
     db.commit()
     _set_refresh_cookie(response, refresh_token)
     return TokenResponse(access_token=access_token, user=UserRead.model_validate(user))
+
+
+@router.post("/password-reset/request", status_code=status.HTTP_202_ACCEPTED)
+@limiter.limit("5/hour")
+def password_reset_request(
+    request: Request, payload: PasswordResetRequest, db: Session = Depends(get_db)
+) -> dict[str, str]:
+    result = auth_service.request_password_reset(db, email=payload.email)
+    db.commit()
+    if result is not None:
+        user, raw_token = result
+        reset_url = f"{settings.frontend_base_url}/redefinir-password?token={raw_token}"
+        send_email(
+            to=user.email,
+            subject="Repor a tua password — CentiSible",
+            html=password_reset_email_html(
+                name=user.name,
+                reset_url=reset_url,
+                expire_minutes=settings.password_reset_token_expire_minutes,
+            ),
+        )
+    # Resposta igual exista ou não a conta — não revela que emails estão registados.
+    return {"detail": "Se existir uma conta com esse email, enviámos as instruções."}
+
+
+@router.post("/password-reset/confirm")
+@limiter.limit("10/hour")
+def password_reset_confirm(
+    request: Request,
+    payload: PasswordResetConfirm,
+    response: Response,
+    db: Session = Depends(get_db),
+) -> dict[str, str]:
+    # InvalidPasswordResetTokenError → 400 via o handler em main.py.
+    auth_service.reset_password(db, token=payload.token, new_password=payload.password)
+    db.commit()
+    _clear_refresh_cookie(response)  # a password mudou — todas as sessões terminaram
+    return {"detail": "Password alterada. Já podes entrar com a nova."}
 
 
 @router.post("/refresh", response_model=TokenResponse)

@@ -11,7 +11,7 @@ export function createAccount(payload: AccountInput) {
   return apiClient.post<Account>(BASE_URL, payload)
 }
 
-export function updateAccount(id: string, payload: Partial<AccountInput>) {
+export function updateAccount(id: string, payload: AccountInput) {
   return apiClient.patch<Account>(`${BASE_URL}/${id}`, payload)
 }
 

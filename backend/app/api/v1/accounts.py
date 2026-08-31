@@ -1,10 +1,9 @@
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
-from app.core.exceptions import AccountInUseError, AccountNotFoundError
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.account import AccountCreate, AccountRead, AccountUpdate
@@ -47,22 +46,18 @@ def update_account(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> AccountRead:
-    try:
-        account = account_service.update_account(
-            db,
-            user_id=current_user.id,
-            account_id=account_id,
-            name=payload.name,
-            type=payload.type,
-            initial_balance=payload.initial_balance,
-            card_expiration_date=payload.card_expiration_date,
-            card_expiration_date_set="card_expiration_date" in payload.model_fields_set,
-            card_plafond=payload.card_plafond,
-            card_plafond_set="card_plafond" in payload.model_fields_set,
-        )
-    except AccountNotFoundError as exc:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Conta não encontrada.") from exc
-
+    # PATCH mas com o formulário completo — a UI reenvia sempre todos os campos
+    # (ver schemas/account.py e o docstring de TransactionUpdate).
+    account = account_service.update_account(
+        db,
+        user_id=current_user.id,
+        account_id=account_id,
+        name=payload.name,
+        type=payload.type,
+        initial_balance=payload.initial_balance,
+        card_expiration_date=payload.card_expiration_date,
+        card_plafond=payload.card_plafond,
+    )
     db.commit()
     return AccountRead.model_validate(account)
 
@@ -73,15 +68,5 @@ def delete_account(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> None:
-    try:
-        account_service.delete_account(db, user_id=current_user.id, account_id=account_id)
-    except AccountNotFoundError as exc:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Conta não encontrada.") from exc
-    except AccountInUseError as exc:
-        raise HTTPException(
-            status.HTTP_409_CONFLICT,
-            "Esta conta está a ser usada (transações ou despesas recorrentes) e não pode ser "
-            "eliminada.",
-        ) from exc
-
+    account_service.delete_account(db, user_id=current_user.id, account_id=account_id)
     db.commit()
