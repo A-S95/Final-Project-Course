@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { ApiError } from '@/api/client'
 import { PageHeader } from '@/components/page-header'
+import { QueryError } from '@/components/query-error'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -320,7 +321,7 @@ export function CategoriesPage() {
   const queryClient = useQueryClient()
   const [isCreating, setIsCreating] = useState(false)
 
-  const { data: categories, isLoading, isError } = useQuery({
+  const { data: categories, isLoading, isError, refetch } = useQuery({
     queryKey: ['categories'],
     queryFn: categoriesApi.listCategories,
   })
@@ -366,7 +367,10 @@ export function CategoriesPage() {
         <div className="min-w-0 flex-1">
           {isLoading && <p className="text-sm text-ink-muted">A carregar...</p>}
           {isError && (
-            <p className="text-sm text-red-600">Não foi possível carregar as categorias.</p>
+            <QueryError
+              message="Não foi possível carregar as categorias."
+              onRetry={() => refetch()}
+            />
           )}
           {categories && categories.length === 0 && (
             <Card className="p-6 text-sm text-ink-muted">Ainda não tens nenhuma categoria.</Card>

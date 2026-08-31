@@ -6,6 +6,7 @@ import { useForm } from 'react-hook-form'
 import { ApiError } from '@/api/client'
 import { AnimatedNumber } from '@/components/animated-number'
 import { PageHeader } from '@/components/page-header'
+import { QueryError } from '@/components/query-error'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -203,6 +204,7 @@ function GoalRow({ goal, currency, index }: { goal: Goal; currency: string; inde
   const queryClient = useQueryClient()
   const [isEditing, setIsEditing] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   const updateMutation = useMutation({
     mutationFn: (values: GoalFormValues) => goalsApi.updateGoal(goal.id, toInput(values)),
@@ -215,6 +217,10 @@ function GoalRow({ goal, currency, index }: { goal: Goal; currency: string; inde
   const deleteMutation = useMutation({
     mutationFn: () => goalsApi.deleteGoal(goal.id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['goals'] }),
+    onError: (err) => {
+      setDeleteError(errorMessage(err, 'Não foi possível eliminar o objetivo.'))
+      setConfirmingDelete(false)
+    },
   })
 
   if (isEditing) {
@@ -287,12 +293,21 @@ function GoalRow({ goal, currency, index }: { goal: Goal; currency: string; inde
             <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
               Editar
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => setConfirmingDelete(true)}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setDeleteError(null)
+                setConfirmingDelete(true)
+              }}
+            >
               Eliminar
             </Button>
           </div>
         )}
       </div>
+
+      {deleteError && <p className="text-sm text-red-600">{deleteError}</p>}
     </motion.div>
   )
 }
@@ -307,6 +322,7 @@ export function GoalsPage() {
     data: goals,
     isLoading,
     isError,
+    refetch,
   } = useQuery({ queryKey: ['goals'], queryFn: goalsApi.listGoals })
 
   const createMutation = useMutation({
@@ -345,7 +361,7 @@ export function GoalsPage() {
         <div className="min-w-0 flex-1">
           {isLoading && <p className="text-sm text-ink-muted">A carregar...</p>}
           {isError && (
-            <p className="text-sm text-red-600">Não foi possível carregar os objetivos.</p>
+            <QueryError message="Não foi possível carregar os objetivos." onRetry={() => refetch()} />
           )}
           {goals && goals.length === 0 && (
             <Card className="p-6 text-sm text-ink-muted">Ainda não tens objetivos.</Card>

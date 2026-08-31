@@ -3,6 +3,7 @@ import { motion, useReducedMotion } from 'motion/react'
 import { useState } from 'react'
 import { ApiError } from '@/api/client'
 import { PageHeader } from '@/components/page-header'
+import { QueryError } from '@/components/query-error'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -308,7 +309,7 @@ function HouseholdView({ household }: { household: Household }) {
 }
 
 export function HouseholdPage() {
-  const { data: household, isLoading, isError } = useQuery({
+  const { data: household, isLoading, isError, refetch } = useQuery({
     queryKey: ['household'],
     queryFn: householdsApi.getMyHousehold,
   })
@@ -324,7 +325,10 @@ export function HouseholdPage() {
 
       {isLoading && <p className="text-sm text-ink-muted">A carregar...</p>}
       {isError && (
-        <p className="text-sm text-red-600">Não foi possível carregar o agregado familiar.</p>
+        <QueryError
+          message="Não foi possível carregar o agregado familiar."
+          onRetry={() => refetch()}
+        />
       )}
 
       {!isLoading && !isError && household && <HouseholdView household={household} />}

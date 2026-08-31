@@ -1,10 +1,11 @@
-import { keepPreviousData, useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
 import { motion, useReducedMotion } from 'motion/react'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
 import { AnimatedNumber } from '@/components/animated-number'
 import { PageHeader } from '@/components/page-header'
+import { QueryError } from '@/components/query-error'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import * as accountsApi from '@/features/accounts/api'
@@ -451,7 +452,12 @@ export function DashboardPage() {
   const isCurrentMonth = isSameMonth(month, currentMonth)
   const [scope, setScope] = useState<DashboardScope>('individual')
 
-  const { data: household } = useQuery({ queryKey: ['household'], queryFn: getMyHousehold })
+  const queryClient = useQueryClient()
+
+  const { data: household, isError: householdError } = useQuery({
+    queryKey: ['household'],
+    queryFn: getMyHousehold,
+  })
   const hasHousehold = Boolean(household)
   // Se o utilizador saiu do agregado enquanto via a vista partilhada, volta a "individual".
   const effectiveScope: DashboardScope = hasHousehold ? scope : 'individual'
@@ -463,6 +469,7 @@ export function DashboardPage() {
     isLoading,
     isFetching,
     isError,
+    refetch,
   } = useQuery({
     queryKey: ['dashboard', toIsoDate(month), effectiveScope],
     queryFn: () => getDashboard(toIsoDate(month), effectiveScope),
@@ -470,27 +477,55 @@ export function DashboardPage() {
   })
 
   // Alertas são sempre da vista individual (conselhos pessoais).
-  const { data: insights } = useQuery({
+  const { data: insights, isError: insightsError } = useQuery({
     queryKey: ['insights', toIsoDate(month)],
     queryFn: () => getInsights(toIsoDate(month)),
     placeholderData: keepPreviousData,
   })
 
   // Sem mês/agregado, mesma chave de query de routes/goals.tsx (cache partilhada).
-  const { data: goals } = useQuery({ queryKey: ['goals'], queryFn: goalsApi.listGoals })
+  const { data: goals, isError: goalsError } = useQuery({
+    queryKey: ['goals'],
+    queryFn: goalsApi.listGoals,
+  })
 
   // Saldos por conta — sem mês/agregado, mesma chave de routes/accounts.tsx.
-  const { data: accounts } = useQuery({ queryKey: ['accounts'], queryFn: accountsApi.listAccounts })
+  const { data: accounts, isError: accountsError } = useQuery({
+    queryKey: ['accounts'],
+    queryFn: accountsApi.listAccounts,
+  })
 
   // Próximos pagamentos: sem mês/agregado, mesma chave de routes/recurring.tsx.
-  const { data: recurring } = useQuery({
+  const { data: recurring, isError: recurringError } = useQuery({
     queryKey: ['recurring'],
     queryFn: recurringApi.listRecurring,
   })
 
+  // Estas secções são secundárias ao resumo do mês: se alguma falhar, um aviso
+  // discreto com retry em vez de o cartão simplesmente desaparecer sem explicação.
+  const secondarySectionFailed =
+    householdError || insightsError || goalsError || accountsError || recurringError
+
   return (
     <main className="mx-auto flex min-h-svh w-full max-w-[2000px] flex-col gap-6 p-4 py-10 xl:p-10">
       <PageHeader title={`Olá, ${firstName}`} subtitle="Aqui está o resumo do teu mês." />
+
+      {secondarySectionFailed && (
+        <p className="text-sm text-ink-muted">
+          Algumas secções não carregaram.{' '}
+          <button
+            type="button"
+            onClick={() => {
+              for (const key of [['household'], ['insights'], ['goals'], ['accounts'], ['recurring']]) {
+                queryClient.invalidateQueries({ queryKey: key })
+              }
+            }}
+            className="font-medium text-accent-strong underline dark:text-accent"
+          >
+            Tentar novamente
+          </button>
+        </p>
+      )}
 
       {accounts && <AccountsSummaryCard accounts={accounts} currency={currency} />}
 
@@ -538,7 +573,9 @@ export function DashboardPage() {
       </div>
 
       {isLoading && <p className="text-sm text-ink-muted">A carregar o resumo...</p>}
-      {isError && <p className="text-sm text-red-600">Não foi possível carregar o resumo do mês.</p>}
+      {isError && (
+        <QueryError message="Não foi possível carregar o resumo do mês." onRetry={() => refetch()} />
+      )}
 
       {data && (
         <div

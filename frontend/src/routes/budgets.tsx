@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import { ApiError } from '@/api/client'
 import { AnimatedNumber } from '@/components/animated-number'
 import { PageHeader } from '@/components/page-header'
+import { QueryError } from '@/components/query-error'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -70,6 +71,7 @@ function BudgetRow({
   const deleteMutation = useMutation({
     mutationFn: () => budgetsApi.deleteBudget(budget.id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['budgets'] }),
+    onError: (err) => setError(errorMessage(err, 'Não foi possível eliminar o orçamento.')),
   })
 
   const over = Number(budget.remaining) < 0
@@ -261,6 +263,7 @@ export function BudgetsPage() {
     isLoading,
     isFetching,
     isError,
+    refetch,
   } = useQuery({
     queryKey: ['budgets', toIsoDate(month)],
     queryFn: () => budgetsApi.listBudgets(toIsoDate(month)),
@@ -310,7 +313,10 @@ export function BudgetsPage() {
         <div className="min-w-0 flex-1">
           {isLoading && <p className="text-sm text-ink-muted">A carregar...</p>}
           {isError && (
-            <p className="text-sm text-red-600">Não foi possível carregar os orçamentos.</p>
+            <QueryError
+              message="Não foi possível carregar os orçamentos."
+              onRetry={() => refetch()}
+            />
           )}
           {budgets && budgets.length === 0 && (
             <Card className="p-6 text-sm text-ink-muted">Sem orçamentos para este mês.</Card>

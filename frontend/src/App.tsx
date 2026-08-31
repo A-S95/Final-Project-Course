@@ -1,4 +1,4 @@
-import { lazy, Suspense, type ReactNode } from 'react'
+import { lazy, Suspense, type ComponentType, type ReactNode } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { BrowserRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { ErrorBoundary } from '@/components/error-boundary'
@@ -6,40 +6,73 @@ import { Splash } from '@/components/splash'
 import { AuthProvider } from '@/features/auth/auth-context'
 import { ProtectedRoute } from '@/routes/protected-route'
 
+const CHUNK_RELOAD_FLAG = 'chunk-reload'
+
+// Um chunk que falha a carregar é quase sempre um deploy novo: o browser pede um
+// ficheiro com um hash que já não existe (404). Recarrega a página uma vez — o guard
+// em sessionStorage evita um ciclo de reload se a falha for outra coisa (offline).
+function lazyWithReload<T extends ComponentType<object>>(
+  factory: () => Promise<{ default: T }>,
+) {
+  return lazy(() =>
+    factory()
+      .then((mod) => {
+        try {
+          sessionStorage.removeItem(CHUNK_RELOAD_FLAG)
+        } catch {
+          // sessionStorage indisponível (modo privado) — não é crítico.
+        }
+        return mod
+      })
+      .catch((err: unknown) => {
+        try {
+          if (!sessionStorage.getItem(CHUNK_RELOAD_FLAG)) {
+            sessionStorage.setItem(CHUNK_RELOAD_FLAG, '1')
+            window.location.reload()
+            return new Promise<{ default: T }>(() => {}) // nunca resolve; a página vai recarregar
+          }
+        } catch {
+          // ignore
+        }
+        throw err
+      }),
+  )
+}
+
 // Uma página por chunk. `.then` remapeia export nomeado para `default`, que React.lazy exige.
-const LoginPage = lazy(() => import('@/routes/login').then((m) => ({ default: m.LoginPage })))
-const RegisterPage = lazy(() =>
+const LoginPage = lazyWithReload(() => import('@/routes/login').then((m) => ({ default: m.LoginPage })))
+const RegisterPage = lazyWithReload(() =>
   import('@/routes/register').then((m) => ({ default: m.RegisterPage })),
 )
-const DashboardPage = lazy(() =>
+const DashboardPage = lazyWithReload(() =>
   import('@/routes/dashboard').then((m) => ({ default: m.DashboardPage })),
 )
-const AccountsPage = lazy(() =>
+const AccountsPage = lazyWithReload(() =>
   import('@/routes/accounts').then((m) => ({ default: m.AccountsPage })),
 )
-const CategoriesPage = lazy(() =>
+const CategoriesPage = lazyWithReload(() =>
   import('@/routes/categories').then((m) => ({ default: m.CategoriesPage })),
 )
-const TransactionsPage = lazy(() =>
+const TransactionsPage = lazyWithReload(() =>
   import('@/routes/transactions').then((m) => ({ default: m.TransactionsPage })),
 )
-const HouseholdPage = lazy(() =>
+const HouseholdPage = lazyWithReload(() =>
   import('@/routes/household').then((m) => ({ default: m.HouseholdPage })),
 )
-const BudgetsPage = lazy(() =>
+const BudgetsPage = lazyWithReload(() =>
   import('@/routes/budgets').then((m) => ({ default: m.BudgetsPage })),
 )
-const RecurringPage = lazy(() =>
+const RecurringPage = lazyWithReload(() =>
   import('@/routes/recurring').then((m) => ({ default: m.RecurringPage })),
 )
-const GoalsPage = lazy(() => import('@/routes/goals').then((m) => ({ default: m.GoalsPage })))
-const LandingPage = lazy(() =>
+const GoalsPage = lazyWithReload(() => import('@/routes/goals').then((m) => ({ default: m.GoalsPage })))
+const LandingPage = lazyWithReload(() =>
   import('@/routes/landing').then((m) => ({ default: m.LandingPage })),
 )
-const HistoryPage = lazy(() =>
+const HistoryPage = lazyWithReload(() =>
   import('@/routes/history').then((m) => ({ default: m.HistoryPage })),
 )
-const SettingsPage = lazy(() =>
+const SettingsPage = lazyWithReload(() =>
   import('@/routes/settings').then((m) => ({ default: m.SettingsPage })),
 )
 

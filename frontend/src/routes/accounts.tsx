@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { ApiError } from '@/api/client'
 import { PageHeader } from '@/components/page-header'
+import { QueryError } from '@/components/query-error'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -263,7 +264,7 @@ export function AccountsPage() {
   const queryClient = useQueryClient()
   const [isCreating, setIsCreating] = useState(false)
 
-  const { data: accounts, isLoading, isError } = useQuery({
+  const { data: accounts, isLoading, isError, refetch } = useQuery({
     queryKey: ['accounts'],
     queryFn: accountsApi.listAccounts,
   })
@@ -310,7 +311,7 @@ export function AccountsPage() {
         <div className="min-w-0 flex-1">
           {isLoading && <p className="text-sm text-ink-muted">A carregar...</p>}
           {isError && (
-            <p className="text-sm text-red-600">Não foi possível carregar as contas.</p>
+            <QueryError message="Não foi possível carregar as contas." onRetry={() => refetch()} />
           )}
           {accounts && accounts.length === 0 && (
             <Card className="p-6 text-sm text-ink-muted">Ainda não tens nenhuma conta.</Card>

@@ -13,6 +13,7 @@ import {
   YAxis,
 } from 'recharts'
 import { PageHeader } from '@/components/page-header'
+import { QueryError } from '@/components/query-error'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import * as analyticsApi from '@/features/analytics/api'
@@ -135,6 +136,7 @@ export function HistoryPage() {
     isLoading: isComparisonLoading,
     isFetching: isComparisonFetching,
     isError: isComparisonError,
+    refetch: refetchComparison,
   } = useQuery({
     queryKey: ['analytics-comparison', isoMonth],
     queryFn: () => analyticsApi.getMonthlyComparison(isoMonth),
@@ -145,6 +147,7 @@ export function HistoryPage() {
     isLoading: isTrendLoading,
     isFetching: isTrendFetching,
     isError: isTrendError,
+    refetch: refetchTrend,
   } = useQuery({
     queryKey: ['analytics-trend', isoMonth, trendMonths],
     queryFn: () => analyticsApi.getMonthlyTrend(isoMonth, trendMonths),
@@ -191,7 +194,10 @@ export function HistoryPage() {
         <p className="text-sm text-ink-muted">A carregar...</p>
       )}
       {isComparisonError && (
-        <p className="text-sm text-red-600">Não foi possível carregar a comparação mensal.</p>
+        <QueryError
+          message="Não foi possível carregar a comparação mensal."
+          onRetry={() => refetchComparison()}
+        />
       )}
       {comparison && (
         <div
@@ -212,9 +218,12 @@ export function HistoryPage() {
             <p className="p-6 text-sm text-ink-muted">A carregar...</p>
           )}
           {isTrendError && (
-            <p className="p-6 text-sm text-red-600">
-              Não foi possível carregar a evolução mensal.
-            </p>
+            <div className="p-6">
+              <QueryError
+                message="Não foi possível carregar a evolução mensal."
+                onRetry={() => refetchTrend()}
+              />
+            </div>
           )}
           {trend && (
           <div

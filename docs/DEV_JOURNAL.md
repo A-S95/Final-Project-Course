@@ -57,6 +57,28 @@ cd frontend && npm run test:e2e            # 9 passed (precisa do docker compose
 
 ---
 
+## 2026-08-31 — Auditoria aos estados de loading / empty / error / network
+
+Depois de corrigir o bug do refresh (entrada abaixo), fiz uma passagem por todas as páginas a ver como estavam os quatro estados. Resumo: **loading e empty prontos** (todas as listas têm `{isLoading && "A carregar..."}` + `{data && data.length === 0 && <Card>mensagem</Card>}`, com `keepPreviousData` a evitar piscar ao trocar de mês/vista, e mensagens de pré-requisito onde faz sentido — "cria uma conta primeiro"). **Error e network tinham 4 buracos concretos**, que fechei em dois commits.
+
+**Commit 1 — falhas silenciosas + chunks de deploy:**
+
+- **`onError` nas mutações que não tinham**: "Gerar agora" nas recorrentes (`generateMutation`) falhava sem qualquer feedback — agora mostra a mensagem a vermelho. Mudei `generateMessage: string | null` para `generateResult: { text, error? } | null` para distinguir sucesso de erro no mesmo sítio.
+- **`onError` nos `deleteMutation`** de orçamentos, objetivos e recorrentes — só contas e categorias é que já surfacavam o erro de eliminação. Agora os cinco seguem o mesmo padrão (`deleteError` state + `<p text-red-600>`, limpo ao reabrir o "Eliminar?").
+- **Queries secundárias do dashboard** (`household`, `insights`, `goals`, `accounts`, `recurring`): em falha o cartão simplesmente desaparecia sem explicação. Agora, se alguma falhar, uma linha discreta no topo — "Algumas secções não carregaram. [Tentar novamente]" — que reinvalida as cinco chaves.
+- **Transações**: distinguir "não tens contas ainda" (cinzento, informativo) de "as contas falharam a carregar" (vermelho) — antes mostrava sempre a primeira, o que era enganador em caso de erro de rede.
+- **Falha a carregar um chunk lazy** → `lazyWithReload` em `App.tsx`: um `catch` no `import()` que faz `location.reload()` uma vez (guard em `sessionStorage` contra ciclo). Cenário real de PWA: fazes deploy, um amigo tem a app aberta, muda de página → o browser pede um hash que já não existe → antes: ecrã branco de erro; agora: recarrega e apanha a versão nova.
+
+**Commit 2 — `<QueryError onRetry>` reutilizável:**
+
+Componente único (`components/query-error.tsx`) — mensagem + botão *Tentar novamente* que chama `refetch()` da própria query. Substituiu os `<p className="text-red-600">` soltos em **9 sítios**: contas, categorias, objetivos, orçamentos, recorrentes, transações, agregado, histórico (comparação + evolução) e o resumo do dashboard. Antes, um erro de query só se resolvia com F5; agora todos têm retry local. Tratamento de erro consistente em toda a app, um só componente a manter.
+
+**Deixei de fora** (decisão consciente, ver a conversa): banner global de offline (`navigator.onLine`) — é polish, e o `refetchOnReconnect` do React Query já refaz as queries quando a ligação volta; skeletons de loading; fila de mutações offline (fora do âmbito de um projeto escolar).
+
+**Validação**: `tsc`/`oxlint`/`build` limpos (os 6 avisos do `oxlint` são todos anteriores a esta sessão). Suite E2E 9/9. Sem alterações ao backend.
+
+---
+
 ## 2026-08-31 — Bug real: "Não autenticado" às vezes ao criar cartões/contas
 
 Um amigo a testar reparou que, na página de criação de contas/cartões (`/contas`), às vezes aparecia **"Não foi possível carregar as contas"** e, ao submeter o formulário, **"Não autenticado"** — sem ser mandado para o login, ficava preso na página com os erros. Recarregar (F5) resolvia. Investiguei e eram **duas causas que se somam**, ambas no fluxo de renovação de sessão (`frontend/src/api/client.ts`), não na página em si.

@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { ApiError } from '@/api/client'
 import { PageHeader } from '@/components/page-header'
+import { QueryError } from '@/components/query-error'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -184,6 +185,7 @@ function RecurringRow({
   const queryClient = useQueryClient()
   const [isEditing, setIsEditing] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['recurring'] })
@@ -201,6 +203,10 @@ function RecurringRow({
   const deleteMutation = useMutation({
     mutationFn: () => recurringApi.deleteRecurring(recurring.id),
     onSuccess: invalidate,
+    onError: (err) => {
+      setDeleteError(errorMessage(err, 'Não foi possível eliminar a recorrência.'))
+      setConfirmingDelete(false)
+    },
   })
 
   if (isEditing) {
@@ -279,12 +285,21 @@ function RecurringRow({
             <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
               Editar
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => setConfirmingDelete(true)}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setDeleteError(null)
+                setConfirmingDelete(true)
+              }}
+            >
               Eliminar
             </Button>
           </>
         )}
       </div>
+
+      {deleteError && <p className="text-sm text-red-600">{deleteError}</p>}
     </motion.div>
   )
 }
@@ -294,7 +309,9 @@ export function RecurringPage() {
   const currency = user?.currency ?? 'EUR'
   const queryClient = useQueryClient()
   const [isCreating, setIsCreating] = useState(false)
-  const [generateMessage, setGenerateMessage] = useState<string | null>(null)
+  const [generateResult, setGenerateResult] = useState<{ text: string; error?: boolean } | null>(
+    null,
+  )
 
   const { data: accounts } = useQuery({ queryKey: ['accounts'], queryFn: accountsApi.listAccounts })
   const { data: categories } = useQuery({
@@ -305,6 +322,7 @@ export function RecurringPage() {
     data: recurring,
     isLoading,
     isError,
+    refetch,
   } = useQuery({ queryKey: ['recurring'], queryFn: recurringApi.listRecurring })
 
   const accountsList = accounts ?? []
@@ -326,11 +344,18 @@ export function RecurringPage() {
       for (const key of [['recurring'], ['transactions'], ['accounts'], ['budgets'], ['dashboard']]) {
         queryClient.invalidateQueries({ queryKey: key })
       }
-      setGenerateMessage(
-        result.generated === 0
-          ? 'Nada a gerar — está tudo em dia.'
-          : `${result.generated} transação(ões) gerada(s).`,
-      )
+      setGenerateResult({
+        text:
+          result.generated === 0
+            ? 'Nada a gerar — está tudo em dia.'
+            : `${result.generated} transação(ões) gerada(s).`,
+      })
+    },
+    onError: (err) => {
+      setGenerateResult({
+        text: errorMessage(err, 'Não foi possível gerar as transações.'),
+        error: true,
+      })
     },
   })
 
@@ -351,15 +376,19 @@ export function RecurringPage() {
           <Button
             disabled={generateMutation.isPending}
             onClick={() => {
-              setGenerateMessage(null)
+              setGenerateResult(null)
               generateMutation.mutate()
             }}
           >
             {generateMutation.isPending ? 'A gerar...' : 'Gerar agora'}
           </Button>
         </CardContent>
-        {generateMessage && (
-          <p className="px-5 pb-4 text-sm text-ink-muted">{generateMessage}</p>
+        {generateResult && (
+          <p
+            className={`px-5 pb-4 text-sm ${generateResult.error ? 'text-red-600' : 'text-ink-muted'}`}
+          >
+            {generateResult.text}
+          </p>
         )}
       </Card>
 
@@ -393,7 +422,10 @@ export function RecurringPage() {
         <div className="min-w-0 flex-1">
           {isLoading && <p className="text-sm text-ink-muted">A carregar...</p>}
           {isError && (
-            <p className="text-sm text-red-600">Não foi possível carregar as recorrências.</p>
+            <QueryError
+              message="Não foi possível carregar as recorrências."
+              onRetry={() => refetch()}
+            />
           )}
           {recurring && recurring.length === 0 && (
             <Card className="p-6 text-sm text-ink-muted">

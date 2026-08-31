@@ -7,6 +7,7 @@ import { useForm, useWatch } from 'react-hook-form'
 import { useLocation } from 'react-router-dom'
 import { ApiError } from '@/api/client'
 import { PageHeader } from '@/components/page-header'
+import { QueryError } from '@/components/query-error'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -747,7 +748,10 @@ export function TransactionsPage() {
     setFilters((f) => ({ ...f, date_from: undefined, date_to: undefined }))
   }
 
-  const { data: accounts } = useQuery({ queryKey: ['accounts'], queryFn: accountsApi.listAccounts })
+  const { data: accounts, isError: accountsError } = useQuery({
+    queryKey: ['accounts'],
+    queryFn: accountsApi.listAccounts,
+  })
   const { data: categories } = useQuery({
     queryKey: ['categories'],
     queryFn: categoriesApi.listCategories,
@@ -759,6 +763,7 @@ export function TransactionsPage() {
     isLoading,
     isFetching,
     isError,
+    refetch,
   } = useQuery({
     queryKey: ['transactions', filters],
     queryFn: () => transactionsApi.listTransactions(filters),
@@ -831,7 +836,11 @@ export function TransactionsPage() {
               <CardTitle className="text-base">Nova transação</CardTitle>
             </CardHeader>
             <CardContent>
-              {!canCreate ? (
+              {accountsError ? (
+                <p className="text-sm text-red-600">
+                  Não foi possível carregar as contas. Atualiza a página e tenta de novo.
+                </p>
+              ) : !canCreate ? (
                 <p className="text-sm text-ink-muted">
                   Cria pelo menos uma conta antes de registar transações.
                 </p>
@@ -996,7 +1005,12 @@ export function TransactionsPage() {
           >
             {isLoading && <p className="p-6 text-sm text-ink-muted">A carregar...</p>}
             {isError && (
-              <p className="p-6 text-sm text-red-600">Não foi possível carregar as transações.</p>
+              <div className="p-6">
+                <QueryError
+                  message="Não foi possível carregar as transações."
+                  onRetry={() => refetch()}
+                />
+              </div>
             )}
             {transactions && transactions.length === 0 && (
               <p className="p-6 text-sm text-ink-muted">
