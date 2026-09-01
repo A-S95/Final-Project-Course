@@ -49,6 +49,10 @@ def create_category(
     client: TestClient, headers: dict, *, name: str = "Alimentação", type: str = "EXPENSE"
 ) -> dict:
     response = client.post(CATEGORIES_URL, json={"name": name, "type": type}, headers=headers)
+    if response.status_code == 409:
+        # Já existe — quase sempre uma das categorias-padrão criadas no registo.
+        existing = client.get(CATEGORIES_URL, headers=headers).json()
+        return next(c for c in existing if c["name"] == name)
     assert response.status_code == 201
     return response.json()
 

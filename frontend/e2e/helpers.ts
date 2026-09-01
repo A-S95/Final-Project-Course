@@ -42,6 +42,16 @@ export async function createCategory(
   type: 'Despesa' | 'Receita' = 'Despesa',
 ) {
   await page.goto('/categorias')
+  // Pode já existir — as categorias-padrão são criadas no registo.
+  const existing = page.getByText(name, { exact: true }).first()
+  if (
+    await existing
+      .waitFor({ state: 'visible', timeout: 2000 })
+      .then(() => true)
+      .catch(() => false)
+  ) {
+    return
+  }
   await page.getByRole('button', { name: 'Adicionar categoria' }).click()
   await page.locator('#name').fill(name)
   await page.locator('#type').selectOption({ label: type })

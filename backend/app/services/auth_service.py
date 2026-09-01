@@ -24,6 +24,7 @@ from app.repositories import (
     refresh_token_repository,
     user_repository,
 )
+from app.services import category_service
 
 
 def _issue_tokens(db: Session, user: User) -> tuple[str, str]:
@@ -40,6 +41,7 @@ def register_user(db: Session, *, email: str, password: str, name: str) -> tuple
     if user_repository.get_by_email(db, email) is not None:
         raise EmailAlreadyRegisteredError
     user = user_repository.create(db, email=email, password_hash=hash_password(password), name=name)
+    category_service.create_default_categories(db, user_id=user.id)
     access_token, refresh_token = _issue_tokens(db, user)
     return user, access_token, refresh_token
 

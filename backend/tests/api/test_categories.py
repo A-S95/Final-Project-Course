@@ -15,11 +15,19 @@ TRANSACTIONS_URL = "/api/v1/transactions"
 def test_create_category(client: TestClient) -> None:
     headers = register_and_get_headers(client)
 
-    body = create_category(client, headers)
+    body = create_category(client, headers, name="Restaurantes")
 
-    assert body["name"] == "Alimentação"
+    assert body["name"] == "Restaurantes"
     assert body["type"] == "EXPENSE"
     assert body["icon"] is None
+
+
+def test_register_creates_a_starter_set_of_categories(client: TestClient) -> None:
+    headers = register_and_get_headers(client)
+
+    names = {c["name"] for c in client.get(CATEGORIES_URL, headers=headers).json()}
+
+    assert {"Alimentação", "Salário", "Transportes"} <= names
 
 
 def test_duplicate_name_for_same_user_returns_409(client: TestClient) -> None:
@@ -51,9 +59,10 @@ def test_list_categories_only_returns_own(client: TestClient) -> None:
     create_category(client, headers_a, name="Categoria A")
     create_category(client, headers_b, name="Categoria B")
 
-    response = client.get(CATEGORIES_URL, headers=headers_a)
+    names = [c["name"] for c in client.get(CATEGORIES_URL, headers=headers_a).json()]
 
-    assert [c["name"] for c in response.json()] == ["Categoria A"]
+    assert "Categoria A" in names
+    assert "Categoria B" not in names
 
 
 def test_update_category_name(client: TestClient) -> None:
@@ -100,13 +109,13 @@ def test_cannot_update_another_users_category(client: TestClient) -> None:
 
 def test_delete_category(client: TestClient) -> None:
     headers = register_and_get_headers(client)
-    category = create_category(client, headers)
+    category = create_category(client, headers, name="Categoria Temporária")
 
     delete_response = client.delete(f"{CATEGORIES_URL}/{category['id']}", headers=headers)
     assert delete_response.status_code == 204
 
-    list_response = client.get(CATEGORIES_URL, headers=headers)
-    assert list_response.json() == []
+    remaining = client.get(CATEGORIES_URL, headers=headers).json()
+    assert category["id"] not in {c["id"] for c in remaining}
 
 
 def test_categories_require_authentication(client: TestClient) -> None:
@@ -164,7 +173,7 @@ def test_delete_category_with_reassign_moves_transactions_and_succeeds(
     moved = next(t for t in transactions if t["id"] == transaction["id"])
     assert moved["category_id"] == new_category["id"]
     remaining_categories = client.get(CATEGORIES_URL, headers=headers).json()
-    assert [c["name"] for c in remaining_categories] == ["Alimentação"]
+    assert old_category["id"] not in {c["id"] for c in remaining_categories}
 
 
 def test_delete_category_reassign_to_a_different_type_returns_422(client: TestClient) -> None:

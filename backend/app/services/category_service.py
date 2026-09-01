@@ -12,9 +12,35 @@ from app.core.exceptions import (
 from app.models.category import Category, CategoryType
 from app.repositories import category_repository, transaction_repository
 
+# Criadas automaticamente ao registar uma conta — sem isto o novo utilizador
+# fica com o painel e os formulários de transação/orçamento vazios e sem forma
+# óbvia de arrancar. São categorias normais: pode editá-las ou apagá-las.
+DEFAULT_CATEGORIES: tuple[tuple[str, CategoryType, str, str], ...] = (
+    ("Alimentação", CategoryType.EXPENSE, "🍔", "#ef4444"),
+    ("Supermercado", CategoryType.EXPENSE, "🛒", "#f59e0b"),
+    ("Transportes", CategoryType.EXPENSE, "🚗", "#0ea5e9"),
+    ("Habitação", CategoryType.EXPENSE, "🏠", "#6552f5"),
+    ("Contas e serviços", CategoryType.EXPENSE, "⚡", "#14b8a6"),
+    ("Saúde", CategoryType.EXPENSE, "💊", "#10b981"),
+    ("Lazer", CategoryType.EXPENSE, "🎬", "#ec4899"),
+    ("Compras", CategoryType.EXPENSE, "👕", "#8b5cf6"),
+    ("Educação", CategoryType.EXPENSE, "🎓", "#8b5cf6"),
+    ("Salário", CategoryType.INCOME, "💰", "#10b981"),
+    ("Outros rendimentos", CategoryType.INCOME, "📈", "#0ea5e9"),
+)
+
 
 def list_categories(db: Session, *, user_id: uuid.UUID) -> list[Category]:
     return category_repository.list_by_user(db, user_id)
+
+
+def create_default_categories(db: Session, *, user_id: uuid.UUID) -> list[Category]:
+    return [
+        category_repository.create(
+            db, user_id=user_id, name=name, type=type, icon=icon, color=color
+        )
+        for name, type, icon, color in DEFAULT_CATEGORIES
+    ]
 
 
 def get_category(db: Session, *, user_id: uuid.UUID, category_id: uuid.UUID) -> Category:
