@@ -107,6 +107,15 @@ class InvalidTransactionError(DomainError):
     status_code = 422
 
 
+class SharedExpenseDuplicateError(DomainError):
+    """Outro membro do agregado já lançou uma despesa partilhada igual (mesma
+    categoria e valor) neste mês — provável lançamento em duplicado. Uma despesa
+    partilhada deve ser lançada só uma vez pelo agregado. O cliente pode reenviar
+    com `allow_duplicate=true` para forçar."""
+
+    status_code = 409
+
+
 class ReceiptNotFoundError(DomainError):
     status_code = 404
     detail = "Esta transação não tem recibo."

@@ -1,11 +1,14 @@
 import uuid
+from collections.abc import Sequence
 from datetime import date
 from decimal import Decimal
 
-from sqlalchemy import or_, select, update
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.orm import Session
 
+from app.models.category import Category
 from app.models.transaction import Transaction, TransactionType
+from app.models.user import User
 
 
 def list_by_user(
@@ -80,6 +83,43 @@ def create(
 
 def delete(db: Session, transaction: Transaction) -> None:
     db.delete(transaction)
+
+
+def find_shared_expense_duplicate(
+    db: Session,
+    *,
+    member_user_ids: Sequence[uuid.UUID],
+    exclude_user_id: uuid.UUID,
+    category_name: str,
+    amount: Decimal,
+    month_start: date,
+    next_month_start: date,
+) -> str | None:
+    """Procura uma despesa partilhada já lançada por OUTRO membro do agregado com a
+    mesma categoria (por nome — cada pessoa tem a sua) e o mesmo valor, no mesmo mês.
+
+    Devolve o nome do dono da despesa encontrada (para a mensagem de aviso) ou
+    `None` se não houver nenhuma. Serve de guarda contra o casal lançar a mesma
+    renda/conta da casa duas vezes (ver `transaction_service._check_shared_duplicate`).
+    """
+    stmt = (
+        select(User.name)
+        .select_from(Transaction)
+        .join(Category, Transaction.category_id == Category.id)
+        .join(User, Transaction.user_id == User.id)
+        .where(
+            Transaction.user_id.in_(member_user_ids),
+            Transaction.user_id != exclude_user_id,
+            Transaction.type == TransactionType.EXPENSE,
+            Transaction.is_shared.is_(True),
+            Transaction.amount == amount,
+            Transaction.date >= month_start,
+            Transaction.date < next_month_start,
+            func.lower(Category.name) == category_name.lower(),
+        )
+        .limit(1)
+    )
+    return db.scalar(stmt)
 
 
 def reassign_category(

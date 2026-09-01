@@ -22,12 +22,16 @@ export function exportTransactionsCsv(filters: TransactionFilters = {}) {
   return apiClient.fetchBlob(query ? `${BASE_URL}/export?${query}` : `${BASE_URL}/export`)
 }
 
-export function createTransaction(payload: TransactionInput) {
-  return apiClient.post<Transaction>(BASE_URL, payload)
+// `allowDuplicate`: reenvia depois de o utilizador confirmar um aviso de despesa
+// partilhada já lançada por outro membro do agregado (backend responde 409 sem isto).
+export function createTransaction(payload: TransactionInput, allowDuplicate = false) {
+  const suffix = allowDuplicate ? '?allow_duplicate=true' : ''
+  return apiClient.post<Transaction>(`${BASE_URL}${suffix}`, payload)
 }
 
-export function updateTransaction(id: string, payload: TransactionInput) {
-  return apiClient.patch<Transaction>(`${BASE_URL}/${id}`, payload)
+export function updateTransaction(id: string, payload: TransactionInput, allowDuplicate = false) {
+  const suffix = allowDuplicate ? '?allow_duplicate=true' : ''
+  return apiClient.patch<Transaction>(`${BASE_URL}/${id}${suffix}`, payload)
 }
 
 export function deleteTransaction(id: string) {

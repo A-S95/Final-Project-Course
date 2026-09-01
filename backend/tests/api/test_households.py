@@ -292,11 +292,12 @@ def test_dashboard_household_merges_shared_expenses_with_same_category_name(
     cat_a = create_category(client, a["headers"], name="Renda", type="EXPENSE")
     cat_b = create_category(client, b["headers"], name="Renda", type="EXPENSE")
 
-    # Os dois pagam metade da mesma renda e marcam-na como partilhada — é um
-    # único custo da casa, não duas rendas diferentes.
+    # Os dois pagam partes diferentes da mesma renda e marcam-na como partilhada —
+    # é um único custo da casa. Valores diferentes: não dispara o aviso de
+    # duplicado (esse só trava valores idênticos, provável lançamento em dobro).
     for headers, account, category, amount in (
-        (a["headers"], acc_a, cat_a, "420.00"),
-        (b["headers"], acc_b, cat_b, "420.00"),
+        (a["headers"], acc_a, cat_a, "500.00"),
+        (b["headers"], acc_b, cat_b, "300.00"),
     ):
         client.post(
             TRANSACTIONS_URL,
@@ -334,7 +335,7 @@ def test_dashboard_household_merges_shared_expenses_with_same_category_name(
 
     breakdown = household["expenses_by_category"]
     assert {(row["name"], row["owner_name"], row["total"]) for row in breakdown} == {
-        ("Renda", None, "840.00"),
+        ("Renda", None, "800.00"),
         ("Lazer", "Beatriz", "30.00"),
     }
 
@@ -387,6 +388,105 @@ def test_dashboard_shared_expenses_total_counts_only_is_shared(client: TestClien
 
     assert household["total_expenses"] == "830.00"
     assert household["shared_expenses_total"] == "800.00"
+
+
+def _household_pair(client: TestClient) -> tuple[dict, dict]:
+    a = _make_user(client, "a@example.com", "Antonio")
+    b = _make_user(client, "b@example.com", "Beatriz")
+    _create_household(client, a["headers"])
+    invite_id = _invite(client, a["headers"], "b@example.com").json()["id"]
+    client.post(f"{HOUSEHOLDS_URL}/invites/{invite_id}/accept", headers=b["headers"])
+    return a, b
+
+
+def _shared_expense_body(account: dict, category: dict, amount: str) -> dict:
+    return {
+        "account_id": account["id"],
+        "category_id": category["id"],
+        "type": "EXPENSE",
+        "amount": amount,
+        "date": "2026-08-05",
+        "is_shared": True,
+    }
+
+
+def test_shared_expense_duplicate_by_other_member_is_blocked(client: TestClient) -> None:
+    a, b = _household_pair(client)
+    acc_a = create_account(client, a["headers"], name="Conta A", initial_balance="0")
+    acc_b = create_account(client, b["headers"], name="Conta B", initial_balance="0")
+    cat_a = create_category(client, a["headers"], name="Renda", type="EXPENSE")
+    cat_b = create_category(client, b["headers"], name="Renda", type="EXPENSE")
+
+    first = client.post(
+        TRANSACTIONS_URL, json=_shared_expense_body(acc_a, cat_a, "450.00"), headers=a["headers"]
+    )
+    assert first.status_code == 201
+
+    dup = client.post(
+        TRANSACTIONS_URL, json=_shared_expense_body(acc_b, cat_b, "450.00"), headers=b["headers"]
+    )
+    assert dup.status_code == 409
+    assert "Antonio" in dup.json()["detail"]
+
+    # A vista de agregado conta a renda uma só vez.
+    household = client.get(
+        DASHBOARD_URL,
+        params={"month": "2026-08-01", "scope": "household"},
+        headers=a["headers"],
+    ).json()
+    assert household["total_expenses"] == "450.00"
+
+
+def test_shared_expense_duplicate_can_be_forced_with_allow_duplicate(client: TestClient) -> None:
+    a, b = _household_pair(client)
+    acc_a = create_account(client, a["headers"], name="Conta A", initial_balance="0")
+    acc_b = create_account(client, b["headers"], name="Conta B", initial_balance="0")
+    cat_a = create_category(client, a["headers"], name="Renda", type="EXPENSE")
+    cat_b = create_category(client, b["headers"], name="Renda", type="EXPENSE")
+
+    client.post(
+        TRANSACTIONS_URL, json=_shared_expense_body(acc_a, cat_a, "450.00"), headers=a["headers"]
+    )
+    forced = client.post(
+        TRANSACTIONS_URL,
+        params={"allow_duplicate": "true"},
+        json=_shared_expense_body(acc_b, cat_b, "450.00"),
+        headers=b["headers"],
+    )
+    assert forced.status_code == 201
+
+
+def test_non_shared_duplicate_expense_is_not_blocked(client: TestClient) -> None:
+    a, b = _household_pair(client)
+    acc_a = create_account(client, a["headers"], name="Conta A", initial_balance="0")
+    acc_b = create_account(client, b["headers"], name="Conta B", initial_balance="0")
+    cat_a = create_category(client, a["headers"], name="Compras", type="EXPENSE")
+    cat_b = create_category(client, b["headers"], name="Compras", type="EXPENSE")
+
+    body_a = _shared_expense_body(acc_a, cat_a, "50.00") | {"is_shared": False}
+    body_b = _shared_expense_body(acc_b, cat_b, "50.00") | {"is_shared": False}
+    assert client.post(TRANSACTIONS_URL, json=body_a, headers=a["headers"]).status_code == 201
+    assert client.post(TRANSACTIONS_URL, json=body_b, headers=b["headers"]).status_code == 201
+
+
+def test_shared_duplicate_guard_ignores_users_outside_the_household(client: TestClient) -> None:
+    a, _ = _household_pair(client)
+    outsider = _make_user(client, "c@example.com", "Carlos")
+    acc_a = create_account(client, a["headers"], name="Conta A", initial_balance="0")
+    acc_c = create_account(client, outsider["headers"], name="Conta C", initial_balance="0")
+    cat_a = create_category(client, a["headers"], name="Renda", type="EXPENSE")
+    cat_c = create_category(client, outsider["headers"], name="Renda", type="EXPENSE")
+
+    client.post(
+        TRANSACTIONS_URL, json=_shared_expense_body(acc_a, cat_a, "450.00"), headers=a["headers"]
+    )
+    # Carlos não está no agregado: o seu lançamento não é travado pela renda do Antonio.
+    resp = client.post(
+        TRANSACTIONS_URL,
+        json=_shared_expense_body(acc_c, cat_c, "450.00"),
+        headers=outsider["headers"],
+    )
+    assert resp.status_code == 201
 
 
 def test_dashboard_household_scope_falls_back_when_not_in_a_household(client: TestClient) -> None:

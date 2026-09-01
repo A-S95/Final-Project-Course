@@ -8,16 +8,18 @@ from pathlib import Path
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.dates import month_bounds
 from app.core.exceptions import (
     InvalidReceiptError,
     InvalidTransactionError,
     ReceiptNotFoundError,
+    SharedExpenseDuplicateError,
     TransactionNotFoundError,
 )
 from app.models.account import Account
 from app.models.category import CategoryType
 from app.models.transaction import Transaction, TransactionType
-from app.repositories import transaction_repository
+from app.repositories import household_repository, transaction_repository
 from app.services import account_service, category_service
 
 # Foto ao talão ou fatura digitalizada — os dois casos reais.
@@ -63,6 +65,45 @@ def _validate_category_type(type: TransactionType, category_type: CategoryType) 
     if type.value != category_type.value:
         raise InvalidTransactionError(
             "O tipo da categoria tem de corresponder ao tipo da transação."
+        )
+
+
+def _check_shared_duplicate(
+    db: Session,
+    *,
+    user_id: uuid.UUID,
+    category_id: uuid.UUID,
+    amount: Decimal,
+    date: date,
+    allow_duplicate: bool,
+) -> None:
+    """Uma despesa partilhada é um custo da casa, lançado uma só vez por quem pagou.
+    Se outro membro do agregado já tem uma despesa partilhada igual (mesma categoria
+    e valor) neste mês, recusa com 409 — provável lançamento em duplicado. O cliente
+    reenvia com `allow_duplicate=True` (o casal confirmou que são mesmo duas)."""
+    if allow_duplicate:
+        return
+    membership = household_repository.get_membership_for_user(db, user_id)
+    if membership is None:
+        return
+
+    category = category_service.get_category(db, user_id=user_id, category_id=category_id)
+    month_start, next_month_start = month_bounds(date)
+    owner_name = transaction_repository.find_shared_expense_duplicate(
+        db,
+        member_user_ids=household_repository.member_user_ids(db, membership.household_id),
+        exclude_user_id=user_id,
+        category_name=category.name,
+        amount=amount,
+        month_start=month_start,
+        next_month_start=next_month_start,
+    )
+    if owner_name is not None:
+        first_name = owner_name.split(" ")[0]
+        raise SharedExpenseDuplicateError(
+            f"{first_name} já lançou uma despesa partilhada de {amount:.2f}€ em "
+            f"«{category.name}» este mês. Uma despesa partilhada deve ser lançada só "
+            f"uma vez pelo agregado — confirma se queres mesmo lançá-la à mesma."
         )
 
 
@@ -172,6 +213,7 @@ def create_transaction(
     description: str | None,
     date: date,
     is_shared: bool = False,
+    allow_duplicate: bool = False,
 ) -> Transaction:
     _validate_combination(type, account_id, destination_account_id, category_id)
 
@@ -184,6 +226,16 @@ def create_transaction(
     if category_id is not None:
         category = category_service.get_category(db, user_id=user_id, category_id=category_id)
         _validate_category_type(type, category.type)
+
+    if is_shared and type == TransactionType.EXPENSE and category_id is not None:
+        _check_shared_duplicate(
+            db,
+            user_id=user_id,
+            category_id=category_id,
+            amount=amount,
+            date=date,
+            allow_duplicate=allow_duplicate,
+        )
 
     transaction = transaction_repository.create(
         db,
@@ -215,6 +267,7 @@ def update_transaction(
     description: str | None,
     date: date,
     is_shared: bool = False,
+    allow_duplicate: bool = False,
 ) -> Transaction:
     transaction = get_transaction(db, user_id=user_id, transaction_id=transaction_id)
     _validate_combination(type, account_id, destination_account_id, category_id)
@@ -242,6 +295,17 @@ def update_transaction(
     if category_id is not None:
         category = category_service.get_category(db, user_id=user_id, category_id=category_id)
         _validate_category_type(type, category.type)
+
+    if is_shared and type == TransactionType.EXPENSE and category_id is not None:
+        _check_shared_duplicate(
+            db,
+            user_id=user_id,
+            category_id=category_id,
+            amount=amount,
+            date=date,
+            allow_duplicate=allow_duplicate,
+        )
+
     _apply_balance_effect(type, new_account, new_destination, amount, sign=1)
 
     transaction.account_id = account_id

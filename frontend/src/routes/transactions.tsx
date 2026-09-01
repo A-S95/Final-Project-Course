@@ -91,12 +91,19 @@ function TransactionForm({
   categories: Category[]
   hasHousehold: boolean
   defaultValues: TransactionFormValues
-  onSubmit: (values: TransactionFormValues) => Promise<Transaction>
+  onSubmit: (values: TransactionFormValues, allowDuplicate?: boolean) => Promise<Transaction>
   onCancel?: () => void
   submitLabel: string
 }) {
   const queryClient = useQueryClient()
   const [formError, setFormError] = useState<string | null>(null)
+  // Aviso do backend (409): outro membro do agregado já lançou esta despesa
+  // partilhada este mês. Guardamos os valores para reenviar se o utilizador confirmar.
+  const [duplicateWarning, setDuplicateWarning] = useState<{
+    message: string
+    values: TransactionFormValues
+  } | null>(null)
+  const [forcing, setForcing] = useState(false)
   const [receiptFile, setReceiptFile] = useState<File | null>(null)
   const {
     register,
@@ -109,16 +116,33 @@ function TransactionForm({
   const accountId = useWatch({ control, name: 'account_id' })
   const categoriesForType = categories.filter((c) => c.type === type)
 
-  const submit = async (values: TransactionFormValues) => {
+  const runSubmit = async (values: TransactionFormValues, allowDuplicate: boolean) => {
     setFormError(null)
+    setDuplicateWarning(null)
     try {
-      const saved = await onSubmit(values)
+      const saved = await onSubmit(values, allowDuplicate)
       if (receiptFile) {
         await transactionsApi.uploadReceipt(saved.id, receiptFile)
         queryClient.invalidateQueries({ queryKey: ['transactions'] })
       }
     } catch (err) {
+      if (err instanceof ApiError && err.status === 409) {
+        setDuplicateWarning({ message: err.message, values })
+        return
+      }
       setFormError(errorMessage(err, 'Não foi possível guardar a transação.'))
+    }
+  }
+
+  const submit = (values: TransactionFormValues) => runSubmit(values, false)
+
+  const confirmDuplicate = async () => {
+    if (!duplicateWarning) return
+    setForcing(true)
+    try {
+      await runSubmit(duplicateWarning.values, true)
+    } finally {
+      setForcing(false)
     }
   }
 
@@ -213,21 +237,46 @@ function TransactionForm({
       </div>
 
       {hasHousehold && type === 'EXPENSE' && (
-        <label htmlFor="is_shared" className="flex items-center gap-2 text-sm">
-          <input
-            id="is_shared"
-            type="checkbox"
-            className="h-4 w-4 rounded border-border-strong"
-            {...register('is_shared')}
-          />
-          Despesa partilhada com o agregado (ex: renda, contas da casa)
-        </label>
+        <div className="flex flex-col gap-1">
+          <label htmlFor="is_shared" className="flex items-center gap-2 text-sm">
+            <input
+              id="is_shared"
+              type="checkbox"
+              className="h-4 w-4 rounded border-border-strong"
+              {...register('is_shared')}
+            />
+            Despesa partilhada com o agregado (ex: renda, contas da casa)
+          </label>
+          <p className="pl-6 text-xs text-ink-muted">
+            Lança-a uma só vez — por quem pagou. Aparece uma vez na vista do agregado.
+          </p>
+        </div>
       )}
 
       {formError && <p className="text-sm text-red-600">{formError}</p>}
 
+      {duplicateWarning && (
+        <div className="rounded-lg border border-amber-400/60 bg-amber-50 p-3 text-sm dark:border-amber-500/40 dark:bg-amber-500/10">
+          <p className="text-ink">{duplicateWarning.message}</p>
+          <div className="mt-2.5 flex gap-2">
+            <Button type="button" size="sm" onClick={confirmDuplicate} disabled={forcing}>
+              {forcing ? 'A guardar...' : 'Lançar à mesma'}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={() => setDuplicateWarning(null)}
+              disabled={forcing}
+            >
+              Rever
+            </Button>
+          </div>
+        </div>
+      )}
+
       <div className="flex gap-2">
-        <Button type="submit" disabled={isSubmitting}>
+        <Button type="submit" disabled={isSubmitting || forcing}>
           {isSubmitting ? 'A guardar...' : submitLabel}
         </Button>
         {onCancel && (
@@ -479,8 +528,18 @@ function TransactionDetailPanel({
   const [confirmingDelete, setConfirmingDelete] = useState(false)
 
   const updateMutation = useMutation({
-    mutationFn: (values: TransactionFormValues) =>
-      transactionsApi.updateTransaction(transaction.id, formValuesToInput(values)),
+    mutationFn: ({
+      values,
+      allowDuplicate,
+    }: {
+      values: TransactionFormValues
+      allowDuplicate?: boolean
+    }) =>
+      transactionsApi.updateTransaction(
+        transaction.id,
+        formValuesToInput(values),
+        allowDuplicate,
+      ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] })
       queryClient.invalidateQueries({ queryKey: ['accounts'] })
@@ -519,7 +578,9 @@ function TransactionDetailPanel({
             defaultValues={transactionToFormValues(transaction)}
             submitLabel="Guardar"
             onCancel={() => setIsEditing(false)}
-            onSubmit={(values) => updateMutation.mutateAsync(values)}
+            onSubmit={(values, allowDuplicate) =>
+              updateMutation.mutateAsync({ values, allowDuplicate })
+            }
           />
         </CardContent>
       </Card>
@@ -802,8 +863,13 @@ export function TransactionsPage() {
   )
 
   const createMutation = useMutation({
-    mutationFn: (values: TransactionFormValues) =>
-      transactionsApi.createTransaction(formValuesToInput(values)),
+    mutationFn: ({
+      values,
+      allowDuplicate,
+    }: {
+      values: TransactionFormValues
+      allowDuplicate?: boolean
+    }) => transactionsApi.createTransaction(formValuesToInput(values), allowDuplicate),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] })
       queryClient.invalidateQueries({ queryKey: ['accounts'] })
@@ -874,7 +940,9 @@ export function TransactionsPage() {
                   defaultValues={{ ...EMPTY_VALUES, ...prefillValues }}
                   submitLabel="Criar transação"
                   onCancel={() => setIsCreating(false)}
-                  onSubmit={(values) => createMutation.mutateAsync(values)}
+                  onSubmit={(values, allowDuplicate) =>
+                    createMutation.mutateAsync({ values, allowDuplicate })
+                  }
                 />
               ) : (
                 <Button onClick={() => setIsCreating(true)}>Adicionar transação</Button>

@@ -67,6 +67,11 @@ def export_transactions(
 @router.post("", response_model=TransactionRead, status_code=status.HTTP_201_CREATED)
 def create_transaction(
     payload: TransactionCreate,
+    allow_duplicate: bool = Query(
+        default=False,
+        description="Lançar mesmo que outro membro do agregado já tenha uma despesa "
+        "partilhada igual este mês (o utilizador confirmou que são mesmo duas).",
+    ),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> TransactionRead:
@@ -81,6 +86,7 @@ def create_transaction(
         description=payload.description,
         date=payload.date,
         is_shared=payload.is_shared,
+        allow_duplicate=allow_duplicate,
     )
     db.commit()
     return TransactionRead.model_validate(transaction)
@@ -90,6 +96,11 @@ def create_transaction(
 def update_transaction(
     transaction_id: uuid.UUID,
     payload: TransactionUpdate,
+    allow_duplicate: bool = Query(
+        default=False,
+        description="Guardar mesmo que outro membro do agregado já tenha uma despesa "
+        "partilhada igual este mês (o utilizador confirmou que são mesmo duas).",
+    ),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> TransactionRead:
@@ -105,6 +116,7 @@ def update_transaction(
         description=payload.description,
         date=payload.date,
         is_shared=payload.is_shared,
+        allow_duplicate=allow_duplicate,
     )
     db.commit()
     return TransactionRead.model_validate(transaction)
